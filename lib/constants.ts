@@ -42,6 +42,8 @@ export interface PlanMetadataEntry {
  * - Add, remove, or reorder plans here. Everything else adapts automatically.
  * - Key order defines the plan hierarchy (first = lowest, last = highest).
  * - Dynamic Whop plan IDs come from the DB/env via lib/config.ts.
+ * - Prices are synced from the Whop API (set to 0 here as defaults).
+ *   getPlansConfig() auto-syncs when plan IDs exist but prices are missing.
  * - trialDays is display-only; configure the actual trial in your Whop Dashboard.
  */
 export const PLAN_METADATA = {
@@ -61,8 +63,8 @@ export const PLAN_METADATA = {
   starter: {
     name: "Starter",
     description: "For growing teams and businesses",
-    priceMonthly: 29,
-    priceYearly: 290, // ~$24/mo — save ~17%
+    priceMonthly: 0, // Real price synced from Whop API
+    priceYearly: 0,
     features: [
       "Unlimited projects",
       "Advanced analytics",
@@ -76,8 +78,8 @@ export const PLAN_METADATA = {
   pro: {
     name: "Pro",
     description: "For power users and larger teams",
-    priceMonthly: 99,
-    priceYearly: 990, // ~$82.50/mo — save ~17%
+    priceMonthly: 0, // Real price synced from Whop API
+    priceYearly: 0,
     features: [
       "Everything in Starter",
       "Unlimited storage",

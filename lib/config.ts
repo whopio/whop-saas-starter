@@ -197,7 +197,11 @@ export interface PlanConfig {
 export type PlansConfig = Record<PlanKey, PlanConfig>;
 
 /** Build full plan config by merging static metadata with dynamic plan IDs from DB/env.
- *  Wrapped in React.cache() for per-request deduplication across the component tree. */
+ *  Wrapped in React.cache() for per-request deduplication across the component tree.
+ *
+ *  Auto-sync: if plan IDs are configured but prices have never been synced from the
+ *  Whop API, fetches them inline so the current render already has correct prices.
+ *  This covers the env-var configuration path where onboarding sync never runs. */
 export const getPlansConfig = reactCache(async (): Promise<PlansConfig> => {
   const configs = await Promise.all(
     PLAN_KEYS.map(async (key) => {
@@ -214,6 +218,10 @@ export const getPlansConfig = reactCache(async (): Promise<PlansConfig> => {
       const meta = PLAN_METADATA[key];
       return {
         key,
+        monthlyId,
+        yearlyId,
+        dbPriceMonthly,
+        dbPriceYearly,
         config: {
           ...meta,
           // DB values (from onboarding/settings) override PLAN_METADATA defaults
@@ -227,6 +235,31 @@ export const getPlansConfig = reactCache(async (): Promise<PlansConfig> => {
       };
     })
   );
+
+  // Auto-sync: plan IDs exist but prices were never fetched from Whop API
+  const needsSync = configs.some(
+    ({ monthlyId, dbPriceMonthly }) => monthlyId && dbPriceMonthly === null,
+  );
+  if (needsSync) {
+    try {
+      const { syncWhopPlanPrice } = await import("./whop");
+      for (const entry of configs) {
+        const { monthlyId, yearlyId, dbPriceMonthly, dbPriceYearly, config } = entry;
+        if (monthlyId && dbPriceMonthly === null) {
+          const price = await syncWhopPlanPrice(entry.key, "monthly", monthlyId);
+          if (price !== null) config.priceMonthly = price;
+        }
+        if (yearlyId && yearlyId !== monthlyId && dbPriceYearly === null) {
+          const price = await syncWhopPlanPrice(entry.key, "yearly", yearlyId);
+          if (price !== null) config.priceYearly = price;
+        }
+      }
+    } catch {
+      // Sync failed (no API key, network error) — prices stay at 0,
+      // pricing cards will show "—" for unsynced paid plans.
+    }
+  }
+
   const plans = {} as PlansConfig;
   for (const { key, config } of configs) {
     plans[key] = config;

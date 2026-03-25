@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { PlanKey, BillingInterval } from "@/lib/constants";
+import { DEFAULT_PLAN, type PlanKey, type BillingInterval } from "@/lib/constants";
 import { monthlyEquivalent } from "@/lib/utils";
 import type { PlansConfig } from "@/lib/config";
 
@@ -79,6 +79,7 @@ export function PricingCards({ plans }: { plans: PlansConfig }) {
         {planKeys.map((key) => {
           const plan = plans[key];
           const highlighted = plan.highlighted;
+          const isFree = key === DEFAULT_PLAN;
           const price = plan.priceMonthly;
           const yearlyTotal = plan.priceYearly;
           const perMonth =
@@ -92,7 +93,7 @@ export function PricingCards({ plans }: { plans: PlansConfig }) {
           const orderClass =
             plan.highlighted
               ? "order-first lg:order-none"
-              : plan.priceMonthly === 0
+              : isFree
                 ? "order-last lg:order-none"
                 : "";
 
@@ -125,13 +126,19 @@ export function PricingCards({ plans }: { plans: PlansConfig }) {
               <p className="mt-1 text-xs text-[var(--muted)]">{plan.description}</p>
 
               <div className="mt-4">
-                <span className="text-3xl font-semibold tracking-tight" style={{ fontVariantNumeric: "tabular-nums" }}>
-                  ${displayPrice}
-                </span>
-                {displayPrice > 0 && (
-                  <span className="text-xs text-[var(--muted)] ml-0.5">
-                    /mo
-                  </span>
+                {isFree ? (
+                  <span className="text-3xl font-semibold tracking-tight">Free</span>
+                ) : displayPrice > 0 ? (
+                  <>
+                    <span className="text-3xl font-semibold tracking-tight" style={{ fontVariantNumeric: "tabular-nums" }}>
+                      ${displayPrice}
+                    </span>
+                    <span className="text-xs text-[var(--muted)] ml-0.5">
+                      /mo
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-3xl font-semibold tracking-tight">&mdash;</span>
                 )}
                 {/* Fixed-height subtitle to prevent layout shift on toggle */}
                 <p className="mt-0.5 h-4 text-[11px] text-[var(--muted)]">
@@ -149,12 +156,12 @@ export function PricingCards({ plans }: { plans: PlansConfig }) {
                     className={`block rounded-lg py-2.5 text-center text-sm font-medium transition-opacity ${
                       highlighted
                         ? "bg-[var(--accent)] text-[var(--accent-foreground)] hover:opacity-90"
-                        : plan.priceMonthly === 0
+                        : isFree
                           ? "border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--surface)]"
                           : "bg-[var(--foreground)] text-[var(--background)] hover:opacity-90"
                     }`}
                   >
-                    {plan.priceMonthly === 0 ? "Start Free" : highlighted ? "Get Started" : "Subscribe"}
+                    {isFree ? "Start Free" : highlighted ? "Get Started" : "Subscribe"}
                   </Link>
                 ) : (
                   <span className="block w-full rounded-lg border border-[var(--border)] py-2.5 text-center text-xs text-[var(--muted)]">

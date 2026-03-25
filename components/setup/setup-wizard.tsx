@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { PLAN_METADATA, PLAN_KEYS, getPlanBillingIntervals, planConfigKey, planConfigKeyYearly, planNameConfigKey } from "@/lib/constants";
+import { PLAN_METADATA, PLAN_KEYS, DEFAULT_PLAN, getPlanBillingIntervals, planConfigKey, planConfigKeyYearly, planNameConfigKey } from "@/lib/constants";
 
 interface FetchedPrice {
   price: number;
@@ -624,7 +624,7 @@ export function SetupWizard({ initialStep, isSignedIn, isAdmin, initialConfig }:
                   const ck = planConfigKey(key);
                   const cky = planConfigKeyYearly(key);
                   const nk = planNameConfigKey(key);
-                  const isFree = meta.priceMonthly === 0;
+                  const isFree = key === DEFAULT_PLAN;
 
                   if (isFree) {
                     return (
