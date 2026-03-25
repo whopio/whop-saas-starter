@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { getPlansConfig } from "@/lib/config";
 import { syncWhopPlanPrice } from "@/lib/whop";
@@ -35,6 +36,14 @@ export async function POST() {
     if (Object.keys(result).length > 0) {
       synced[key] = result;
     }
+  }
+
+  // Revalidate static pricing pages if any prices changed
+  if (Object.keys(synced).length > 0) {
+    after(() => {
+      revalidatePath("/");
+      revalidatePath("/pricing");
+    });
   }
 
   return NextResponse.json({ synced });

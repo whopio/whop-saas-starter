@@ -24,11 +24,12 @@ export async function POST() {
 
   await setConfig("setup_complete", "true");
 
-  // Revalidate the homepage after the response is sent (non-blocking).
-  // The build-time render had no config data, so the static cache for /
-  // needs to be regenerated now that setup is complete.
+  // Revalidate statically-rendered pages after the response is sent (non-blocking).
+  // The build-time render had no config data, so the static cache needs to be
+  // regenerated now that setup is complete.
   after(() => {
     revalidatePath("/");
+    revalidatePath("/pricing");
   });
 
   return NextResponse.json({ complete: true });

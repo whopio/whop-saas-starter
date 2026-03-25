@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { getConfig, getSetupStatus, setConfigs } from "@/lib/config";
 import { PLAN_KEYS, getPlanBillingIntervals, planConfigKey, planConfigKeyYearly } from "@/lib/constants";
@@ -91,5 +92,24 @@ export async function POST(request: Request) {
   }
 
   await setConfigs(filtered);
+
+  // Revalidate static pricing pages when plan-affecting config changes
+  const planKeys = new Set(
+    PLAN_KEYS.flatMap((key) => {
+      const keys = [planConfigKey(key)];
+      if (getPlanBillingIntervals(key).includes("yearly")) {
+        keys.push(planConfigKeyYearly(key));
+      }
+      return keys;
+    })
+  );
+  const affectsPricing = Object.keys(filtered).some((k) => planKeys.has(k));
+  if (affectsPricing) {
+    after(() => {
+      revalidatePath("/");
+      revalidatePath("/pricing");
+    });
+  }
+
   return NextResponse.json({ saved: true });
 }
