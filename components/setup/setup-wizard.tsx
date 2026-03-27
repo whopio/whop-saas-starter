@@ -744,8 +744,11 @@ export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, initial
                     </a>
                   ))}
                 </div>
+                <p className="mt-2 text-[11px] text-[var(--muted)]">
+                  Pick any folder &mdash; the editor will create a <code className="font-mono">{repoName}</code> folder inside it automatically.
+                </p>
                 {!repoUrl && (
-                  <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+                  <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
                     Could not detect your repo URL. Replace the placeholder with your GitHub repo URL.
                   </p>
                 )}
