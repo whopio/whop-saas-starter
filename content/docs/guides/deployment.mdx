@@ -133,13 +133,14 @@ These can also be configured via the admin Settings page instead of env vars.
 
 ## First Visit
 
-After deploying, visit your site. If Whop isn't configured yet, you'll be redirected to the setup wizard at `/setup` which guides you through:
+After deploying, visit your site. You'll be redirected to the setup wizard at `/setup`.
+
+The wizard checks your database connection first. If it can't connect — because no `DATABASE_URL` is set, the credentials are wrong, or the schema hasn't been pushed — you'll see a dedicated screen with instructions for your environment (Vercel or local). Once the database is healthy, the wizard guides you through:
 
 1. Entering your Whop app ID and API key
-2. Connecting your plan IDs
-3. Setting up webhooks
-
-The first user to sign in via OAuth automatically becomes the admin.
+2. Configuring OAuth and webhooks
+3. Signing in (the first user becomes admin automatically)
+4. Connecting your Whop plan IDs
 
 ## Custom Domain
 

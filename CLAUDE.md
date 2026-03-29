@@ -20,6 +20,7 @@ pnpm db:migrate   # Run migrations
 ### Setup & Configuration
 - Zero-config deploy: only `DATABASE_URL` needed (auto-set by Neon via Vercel Marketplace)
 - In-app setup wizard (`/setup`) guides through Whop config on first visit
+- Setup wizard checks DB health first (step 0): detects no URL, connection failure, or missing schema and shows targeted fix instructions for Vercel vs local environments
 - All config stored in `SystemConfig` DB table via `lib/config.ts`
 - Env vars work as fallback for power users (checked before DB)
 - First user to sign in via OAuth becomes admin (`isAdmin` on User model)

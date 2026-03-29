@@ -37,12 +37,13 @@ pnpm install
 # Set up your database
 cp .env.example .env.local
 # Add your DATABASE_URL to .env.local
+pnpm db:push
 
 # Start developing
 pnpm dev
 ```
 
-Visit `http://localhost:3000` and the setup wizard will guide you through connecting Whop.
+Visit `http://localhost:3000` and the setup wizard will guide you through connecting Whop. If your database isn't connected yet, the wizard will show you how to set it up first.
 
 ## Project Structure
 
