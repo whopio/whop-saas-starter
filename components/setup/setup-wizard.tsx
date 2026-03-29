@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { PLAN_METADATA, PLAN_KEYS, DEFAULT_PLAN, getPlanBillingIntervals, planConfigKey, planConfigKeyYearly, planNameConfigKey } from "@/lib/constants";
 
+export type DbStatus = "connected" | "no_url" | "connection_failed" | "schema_missing";
+
 interface FetchedPrice {
   price: number;
   currency: string;
@@ -15,6 +17,8 @@ interface Props {
   isSignedIn: boolean;
   isAdmin: boolean;
   repoUrl?: string | null;
+  dbStatus: DbStatus;
+  isVercel: boolean;
   initialConfig?: {
     whopAppId: string;
     planIds: Record<string, string>;
@@ -39,9 +43,13 @@ function getPersistedStep(): number | null {
   return saved ? parseInt(saved, 10) : null;
 }
 
-export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, initialConfig }: Props) {
+export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, dbStatus, isVercel, initialConfig }: Props) {
   const router = useRouter();
-  const [step, setStep] = useState(initialStep ?? getPersistedStep() ?? 1);
+  const dbReady = dbStatus === "connected";
+  const [step, setStep] = useState(() => {
+    if (!dbReady) return 0; // Database step
+    return initialStep ?? getPersistedStep() ?? 1;
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -210,7 +218,7 @@ export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, initial
     try { localStorage.setItem("setup_step", String(n)); } catch {}
   }
 
-  const progress = (step / STEPS.length) * 100;
+  const progress = step === 0 ? 0 : (step / STEPS.length) * 100;
   const showBack = step > 1 && step < 8;
 
   return (
@@ -251,6 +259,123 @@ export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, initial
             <div className="mb-6 rounded-lg bg-red-500/10 px-4 py-2.5 text-xs text-red-600 dark:text-red-400 text-left">
               {error}
             </div>
+          )}
+
+          {/* Step 0: Database not connected */}
+          {step === 0 && (
+            <>
+              <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10">
+                <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+                </svg>
+              </div>
+              <h1 className="text-xl font-semibold tracking-tight">
+                Connect a database
+              </h1>
+              <p className="mt-3 text-sm text-[var(--muted)] leading-relaxed max-w-sm mx-auto">
+                {dbStatus === "no_url"
+                  ? "A PostgreSQL database is required but no connection URL was found."
+                  : dbStatus === "connection_failed"
+                    ? "A database URL is configured but the connection failed."
+                    : "The database is connected but the tables haven\u2019t been created yet."}
+              </p>
+
+              <div className="mt-8 text-left space-y-4">
+                {dbStatus === "schema_missing" ? (
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
+                    <p className="text-sm font-medium mb-2">Push the database schema</p>
+                    <p className="text-xs text-[var(--muted)] leading-relaxed mb-3">
+                      Your database is connected but the tables haven&apos;t been set up yet. Run this command:
+                    </p>
+                    <code className="block rounded-md bg-[var(--background)] border border-[var(--border)] px-3 py-2 text-xs font-mono">
+                      pnpm db:push
+                    </code>
+                    {isVercel && (
+                      <p className="mt-3 text-xs text-[var(--muted)] leading-relaxed">
+                        If you deployed to Vercel, this runs automatically during build. Try redeploying — or run the command locally.
+                      </p>
+                    )}
+                  </div>
+                ) : isVercel ? (
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
+                    <p className="text-sm font-medium mb-2">Add a database from the Vercel Marketplace</p>
+                    <p className="text-xs text-[var(--muted)] leading-relaxed mb-3">
+                      Go to your project in the Vercel dashboard, then:
+                    </p>
+                    <div className="space-y-2.5">
+                      <div className="flex gap-3">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/10 text-[10px] font-bold text-[var(--accent)]">1</span>
+                        <p className="text-xs text-[var(--muted)] leading-relaxed">
+                          Click <span className="font-medium text-[var(--foreground)]">Storage</span> in the top navigation
+                        </p>
+                      </div>
+                      <div className="flex gap-3">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/10 text-[10px] font-bold text-[var(--accent)]">2</span>
+                        <p className="text-xs text-[var(--muted)] leading-relaxed">
+                          Choose a Postgres provider — <span className="font-medium text-[var(--foreground)]">Neon</span>, <span className="font-medium text-[var(--foreground)]">Supabase</span>, or <span className="font-medium text-[var(--foreground)]">Prisma Postgres</span> all work
+                        </p>
+                      </div>
+                      <div className="flex gap-3">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/10 text-[10px] font-bold text-[var(--accent)]">3</span>
+                        <p className="text-xs text-[var(--muted)] leading-relaxed">
+                          Create a database and connect it to this project — this sets <code className="font-mono text-[10px]">DATABASE_URL</code> automatically
+                        </p>
+                      </div>
+                      <div className="flex gap-3">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/10 text-[10px] font-bold text-[var(--accent)]">4</span>
+                        <p className="text-xs text-[var(--muted)] leading-relaxed">
+                          <span className="font-medium text-[var(--foreground)]">Redeploy</span> your project so the new environment variable takes effect
+                        </p>
+                      </div>
+                    </div>
+                    {dbStatus === "connection_failed" && (
+                      <p className="mt-3 text-xs text-amber-600 dark:text-amber-400 leading-relaxed">
+                        A <code className="font-mono text-[10px]">DATABASE_URL</code> is set but the connection failed. Check that your database integration is still active and the credentials haven&apos;t been rotated.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
+                    <p className="text-sm font-medium mb-2">Set up a local database connection</p>
+                    <p className="text-xs text-[var(--muted)] leading-relaxed mb-3">
+                      {dbStatus === "connection_failed"
+                        ? "A DATABASE_URL is set but the connection failed. Check the URL is correct and the database is running."
+                        : "Create a PostgreSQL database with any provider and add the connection URL to your environment:"}
+                    </p>
+                    <div className="space-y-2.5">
+                      <div className="flex gap-3">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/10 text-[10px] font-bold text-[var(--accent)]">1</span>
+                        <p className="text-xs text-[var(--muted)] leading-relaxed">
+                          Create a free Postgres database with{" "}
+                          <a href="https://neon.tech" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] underline underline-offset-2">Neon</a>,{" "}
+                          <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] underline underline-offset-2">Supabase</a>, or{" "}
+                          <a href="https://www.prisma.io/postgres" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] underline underline-offset-2">Prisma Postgres</a>
+                        </p>
+                      </div>
+                      <div className="flex gap-3">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/10 text-[10px] font-bold text-[var(--accent)]">2</span>
+                        <p className="text-xs text-[var(--muted)] leading-relaxed">
+                          Add the connection string to <code className="font-mono text-[10px]">.env.local</code>:
+                        </p>
+                      </div>
+                    </div>
+                    <code className="mt-2 block rounded-md bg-[var(--background)] border border-[var(--border)] px-3 py-2 text-xs font-mono">
+                      DATABASE_URL=postgresql://...
+                    </code>
+                    <div className="mt-3 flex gap-3">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/10 text-[10px] font-bold text-[var(--accent)]">3</span>
+                      <p className="text-xs text-[var(--muted)] leading-relaxed">
+                        Run <code className="font-mono text-[10px]">pnpm db:push</code> to create the tables, then restart the dev server
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <StepButton onClick={() => router.refresh()}>
+                Check again
+              </StepButton>
+            </>
           )}
 
           {/* Step 1: Welcome */}
