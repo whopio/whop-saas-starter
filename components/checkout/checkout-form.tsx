@@ -120,6 +120,30 @@ export function CheckoutForm({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFree, showPayment, checkoutReady]);
 
+  // Pre-set email and address on the embed as soon as it's ready, so the
+  // iframe has time to process before the user clicks Pay.
+  useEffect(() => {
+    if (!showPayment || !checkoutReady || isFree) return;
+    const presetEmbed = async () => {
+      try {
+        await checkoutControlsRef.current?.setEmail(email);
+        await checkoutControlsRef.current?.setAddress({
+          name,
+          line1: address,
+          line2: apartment || undefined,
+          city,
+          state: state || "",
+          postalCode,
+          country,
+        });
+      } catch {
+        // Will retry on submit
+      }
+    };
+    presetEmbed();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPayment, checkoutReady]);
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   function clearFieldError(field: string) {
@@ -168,6 +192,7 @@ export function CheckoutForm({
   async function handleSubmitPayment() {
     setIsProcessing(true);
     setPaymentError(null);
+    setFormErrors({});
 
     try {
       await checkoutControlsRef.current?.setEmail(email);
@@ -181,6 +206,8 @@ export function CheckoutForm({
           postalCode,
           country,
         });
+        // Brief delay so the embed iframe can process the address
+        await new Promise((r) => setTimeout(r, 100));
       }
       await checkoutControlsRef.current?.submit();
     } catch (err) {
@@ -231,13 +258,15 @@ export function CheckoutForm({
                     }}
                     placeholder="Email address"
                     aria-label="Email address"
+                    aria-invalid={!!formErrors.email}
+                    aria-describedby={formErrors.email ? "checkout-email-error" : undefined}
                     disabled={isLoggedIn}
                     autoComplete="email"
                     spellCheck={false}
                     className={`${formErrors.email ? inputErrorClass : inputClass} ${isLoggedIn ? "opacity-70 cursor-not-allowed" : ""}`}
                   />
                   {formErrors.email && (
-                    <p className="mt-1.5 text-xs text-red-500">
+                    <p id="checkout-email-error" className="mt-1.5 text-xs text-red-500" role="alert">
                       {formErrors.email}
                     </p>
                   )}
@@ -263,6 +292,8 @@ export function CheckoutForm({
                           clearFieldError("country");
                         }}
                         aria-label="Country"
+                        aria-invalid={!!formErrors.country}
+                        aria-describedby={formErrors.country ? "checkout-country-error" : undefined}
                         className={
                           formErrors.country ? inputErrorClass : inputClass
                         }
@@ -277,7 +308,7 @@ export function CheckoutForm({
                         ))}
                       </select>
                       {formErrors.country && (
-                        <p className="mt-1 text-xs text-red-500">
+                        <p id="checkout-country-error" className="mt-1 text-xs text-red-500" role="alert">
                           {formErrors.country}
                         </p>
                       )}
@@ -294,13 +325,15 @@ export function CheckoutForm({
                         }}
                         placeholder="Full name"
                         aria-label="Full name"
+                        aria-invalid={!!formErrors.name}
+                        aria-describedby={formErrors.name ? "checkout-name-error" : undefined}
                         autoComplete="name"
                         className={
                           formErrors.name ? inputErrorClass : inputClass
                         }
                       />
                       {formErrors.name && (
-                        <p className="mt-1 text-xs text-red-500">
+                        <p id="checkout-name-error" className="mt-1 text-xs text-red-500" role="alert">
                           {formErrors.name}
                         </p>
                       )}
@@ -317,13 +350,15 @@ export function CheckoutForm({
                         }}
                         placeholder="Address"
                         aria-label="Address"
+                        aria-invalid={!!formErrors.address}
+                        aria-describedby={formErrors.address ? "checkout-address-error" : undefined}
                         autoComplete="address-line1"
                         className={
                           formErrors.address ? inputErrorClass : inputClass
                         }
                       />
                       {formErrors.address && (
-                        <p className="mt-1 text-xs text-red-500">
+                        <p id="checkout-address-error" className="mt-1 text-xs text-red-500" role="alert">
                           {formErrors.address}
                         </p>
                       )}
@@ -352,13 +387,15 @@ export function CheckoutForm({
                           }}
                           placeholder="City"
                           aria-label="City"
+                          aria-invalid={!!formErrors.city}
+                          aria-describedby={formErrors.city ? "checkout-city-error" : undefined}
                           autoComplete="address-level2"
                           className={
                             formErrors.city ? inputErrorClass : inputClass
                           }
                         />
                         {formErrors.city && (
-                          <p className="mt-1 text-xs text-red-500">
+                          <p id="checkout-city-error" className="mt-1 text-xs text-red-500" role="alert">
                             {formErrors.city}
                           </p>
                         )}
@@ -382,13 +419,15 @@ export function CheckoutForm({
                           }}
                           placeholder="Postal code"
                           aria-label="Postal code"
+                          aria-invalid={!!formErrors.postalCode}
+                          aria-describedby={formErrors.postalCode ? "checkout-postalcode-error" : undefined}
                           autoComplete="postal-code"
                           className={
                             formErrors.postalCode ? inputErrorClass : inputClass
                           }
                         />
                         {formErrors.postalCode && (
-                          <p className="mt-1 text-xs text-red-500">
+                          <p id="checkout-postalcode-error" className="mt-1 text-xs text-red-500" role="alert">
                             {formErrors.postalCode}
                           </p>
                         )}
@@ -441,7 +480,18 @@ export function CheckoutForm({
                         }
                         onComplete={handleComplete}
                         onAddressValidationError={(error) => {
-                          setPaymentError(error.error_message);
+                          const msg = error.error_message?.toLowerCase() ?? "";
+                          if (msg.includes("name")) {
+                            setFormErrors((prev) => ({ ...prev, name: error.error_message }));
+                          } else if (msg.includes("address") || msg.includes("line")) {
+                            setFormErrors((prev) => ({ ...prev, address: error.error_message }));
+                          } else if (msg.includes("city")) {
+                            setFormErrors((prev) => ({ ...prev, city: error.error_message }));
+                          } else if (msg.includes("postal") || msg.includes("zip")) {
+                            setFormErrors((prev) => ({ ...prev, postalCode: error.error_message }));
+                          } else {
+                            setPaymentError(error.error_message);
+                          }
                           setIsProcessing(false);
                         }}
                         prefill={{ email }}
