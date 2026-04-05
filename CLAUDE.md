@@ -2,7 +2,7 @@
 
 ## Overview
 
-A production-ready Next.js SaaS starter template using Whop for authentication (OAuth 2.1 + PKCE) and subscription payments. This is a **standalone** Next.js app — NOT a Whop app (no iframe, no Whop proxy).
+A production-ready Next.js SaaS starter template using Whop for authentication (OAuth 2.1 + PKCE) and subscription payments. Built on **[whop-kit](https://www.npmjs.com/package/whop-kit)** — a framework-agnostic library for Whop auth, payments, and memberships. This is a **standalone** Next.js app — NOT a Whop app (no iframe, no Whop proxy).
 
 ## Quick Reference
 
@@ -17,6 +17,28 @@ pnpm db:migrate   # Run migrations
 
 ## Architecture
 
+### whop-kit Integration
+This template uses **whop-kit** (`whop-kit` on npm) for all core functionality. The kit provides framework-agnostic logic; this template adds Next.js-specific wrappers.
+
+**What comes from whop-kit:**
+- `whop-kit/core` — `definePlans()` for type-safe plan hierarchy
+- `whop-kit/auth` — JWT create/verify, cookie adapter interface, session helpers
+- `whop-kit/whop` — OAuth PKCE, token exchange, access checks, webhook signature verification
+- `whop-kit/webhooks` — `createWebhookHandler()` for declarative webhook event routing
+- `whop-kit/config` — `createConfigManager()` with in-memory caching + env fallback
+- `whop-kit/subscriptions` — `createSubscriptionHelpers()` with DB adapter pattern
+- `whop-kit/email` — `sendEmail()` for Resend/SendGrid, `emailWrapper()` template helper
+- `whop-kit/analytics` — `getAnalyticsScript()` for PostHog, GA, Plausible
+- `whop-kit/utils` — `cn()`, `formatDate()`, `monthlyEquivalent()`
+
+**What lives in this template (Next.js-specific):**
+- `lib/adapters/next.ts` — `CookieAdapter` using Next.js `cookies()` from `next/headers`
+- `lib/adapters/prisma.ts` — `DbAdapter` and `ConfigStore` implementations for Prisma
+- `lib/auth.ts` — Next.js wrappers: `getSession()` with `React.cache()`, `requireSession()` with `redirect()`
+- `lib/config.ts` — Template-specific config keys, env var mappings, plan config merging
+- `lib/whop.ts` — Convenience wrappers that read API keys from config
+- `proxy.ts` — Next.js 16 middleware for `/dashboard/*` route protection
+
 ### Setup & Configuration
 - Zero-config deploy: only `DATABASE_URL` needed (auto-set by Neon via Vercel Marketplace)
 - In-app setup wizard (`/setup`) guides through Whop config on first visit
@@ -26,6 +48,7 @@ pnpm db:migrate   # Run migrations
 - First user to sign in via OAuth becomes admin (`isAdmin` on User model)
 
 ### Config System (`lib/config.ts`)
+- Uses `createConfigManager()` from whop-kit with Prisma `ConfigStore` adapter
 - `getConfig(key)` / `setConfig(key, value)` — DB-backed with env var fallback and in-memory cache
 - `getPlansConfig()` — merges static plan metadata from `constants.ts` with dynamic plan IDs from DB/env
 - `isSetupComplete()` — checks if app is configured (setup_complete flag or whop_app_id exists)
@@ -36,19 +59,19 @@ pnpm db:migrate   # Run migrations
 - OAuth 2.1 + PKCE — Public client mode (no client_secret needed)
 - PKCE state stored in httpOnly cookie (not in URL state param like whop-ecom)
 - Session = JWT in httpOnly cookie, 7-day TTL, signed with SESSION_SECRET (auto-generated)
+- JWT creation/verification delegated to whop-kit/auth; cookie management via `nextCookieAdapter()`
 - JWT carries identity; **plan is always read fresh from DB** (kept current by Whop webhooks)
 - Session includes `isAdmin` flag for admin-only features and `profileImageUrl` for avatar display
 - Proxy (`proxy.ts`) checks cookie existence on `/dashboard/*`; full JWT verification in `getSession()`
 
 ### Plan System (data-driven)
-- `PLAN_METADATA` in `lib/constants.ts` is the **single source of truth** for plan tiers (names, descriptions, features, hierarchy)
+- Uses `definePlans()` from whop-kit/core in `lib/constants.ts`
+- `PLAN_METADATA` is the **single source of truth** for plan tiers (names, descriptions, features, hierarchy)
 - **Prices are synced from the Whop API** — `priceMonthly`/`priceYearly` default to 0 in constants; `getPlansConfig()` auto-syncs from Whop when plan IDs exist but prices haven't been fetched yet
 - `PlanKey` type is derived from `keyof typeof PLAN_METADATA` (not hardcoded)
 - Key order in `PLAN_METADATA` defines the plan hierarchy (first = lowest, last = highest)
-- `PLAN_RANK`, `PLAN_KEYS`, `DEFAULT_PLAN` are all auto-derived from `PLAN_METADATA`
-- Free plan detection uses `key === DEFAULT_PLAN` (not `priceMonthly === 0`, since all defaults are 0)
-- To add/remove/modify a tier: edit `PLAN_METADATA` — config keys, env vars, setup wizard, pricing page, plan gating all adapt automatically
-- Optional per-plan fields: `trialDays` (display only — configure actual trial in Whop), `billingIntervals` (defaults to `["monthly", "yearly"]`)
+- `PLAN_RANK`, `PLAN_KEYS`, `DEFAULT_PLAN` are all auto-derived via whop-kit
+- To add/remove/modify a tier: edit the `definePlans()` call — config keys, env vars, setup wizard, pricing page, plan gating all adapt automatically
 
 ### Payments
 - Whop embedded checkout via `@whop/checkout` React component (`WhopCheckoutEmbed`)
@@ -57,9 +80,9 @@ pnpm db:migrate   # Run migrations
 - Billing intervals: monthly/yearly toggle on pricing page; each paid tier has Whop plan IDs per interval
 - Checkout pre-fills email for logged-in users
 - Plans fetched from `/api/config/plans` for client components
-- Webhooks (`membership_activated` / `membership_deactivated` / `membership_cancel_at_period_end_changed`) update user plan and cancellation state in DB
+- Webhooks handled via `createWebhookHandler()` from whop-kit/webhooks
 - Billing portal: `/api/billing/portal` redirects paid users to Whop's self-service billing portal
-- Uncancel: `/api/billing/uncancel` reverses pending cancellations via Whop API; `cancelAtPeriodEnd` on User model tracks state
+- Uncancel: `/api/billing/uncancel` reverses pending cancellations via Whop API
 
 ### Key Endpoints
 - `GET /api/auth/login?next=/dashboard` — initiate OAuth
@@ -67,7 +90,7 @@ pnpm db:migrate   # Run migrations
 - `GET /api/auth/logout` — clear session
 - `GET /api/auth/me` — current user (for client-side checks)
 - `POST /api/auth/delete-account` — delete user account (requires confirmation)
-- `POST /api/webhooks/whop` — Whop webhook handler
+- `POST /api/webhooks/whop` — Whop webhook handler (via whop-kit/webhooks)
 - `GET /api/billing/portal` — redirect to Whop billing portal (or /pricing for free users)
 - `POST /api/billing/uncancel` — reactivate a pending-cancellation subscription
 - `GET/POST /api/setup` — read/write config during setup (open pre-setup, admin-only after)
@@ -89,27 +112,29 @@ pnpm db:migrate   # Run migrations
 
 ## Tech Stack
 - **Next.js 16** (App Router), **TypeScript**, **Tailwind CSS v4**
+- **whop-kit** — framework-agnostic core (auth, payments, webhooks, config, subscriptions)
 - **Prisma 7** + PostgreSQL (pg driver adapter via `@prisma/adapter-pg`)
-- **jose** for JWT signing/verification
-- **@whop/checkout** for embedded checkout; direct fetch to `https://api.whop.com` for auth/API
+- **jose** for JWT signing/verification (peer dependency of whop-kit)
+- **@whop/checkout** for embedded checkout
 - **Fumadocs** + MDX for documentation site at `/docs`
 
 ## Important Patterns
 - `getSession()` — get current session or null; plan is always fresh from DB (never stale JWT). Deduped per-request via `React.cache()`.
 - `requireSession()` — get session or redirect to `/login` (protected pages)
-- `requirePlan("starter")` — get session or redirect to `/pricing` if plan insufficient. Hierarchy is auto-derived from key order in `PLAN_METADATA`.
+- `requirePlan("starter")` — get session or redirect to `/pricing` if plan insufficient. Hierarchy is auto-derived from key order in `definePlans()`.
 - `hasMinimumPlan(userPlan, minimumPlan)` — pure function for plan level comparison in API routes
 - `<PlanGate plan={session.plan} minimum="starter">` — client component for conditional rendering (pass plan from server parent)
-- `checkWhopAccess(whopUserId, productId, apiKey)` / `hasWhopAccess(whopUserId, productId)` — real-time Whop API access checks (for authoritative gating)
+- `checkWhopAccess(whopUserId, productId, apiKey)` / `hasWhopAccess(whopUserId, productId)` — real-time Whop API access checks
 - `getSubscriptionDetails(userId)` — typed subscription lookup; returns `{ hasSubscription, subscription?, error? }`
 - `isUserSubscribed(userId)` — boolean check for active paid subscription
 - `getUserSubscriptionStatus(userId)` — returns `"active" | "canceling" | "free"`
-- `activateMembership()` / `deactivateMembership()` / `updateCancelAtPeriodEnd()` — webhook write helpers
-- `getConfig(key)` — read config value (cache → env → DB)
+- `activateMembership()` / `deactivateMembership()` / `updateCancelAtPeriodEnd()` — subscription write helpers (via whop-kit/subscriptions adapter)
+- `getConfig(key)` — read config value (cache → env → DB, via whop-kit/config)
 - `getPlansConfig()` — server-side plan config (use in server components, pass to client as props)
-- `sendEmail({ to, subject, html })` — sends via configured provider (Resend/SendGrid), returns `{ success, error? }`. Used for welcome emails and payment failure notifications.
-- `welcomeEmail(name)` / `paymentFailedEmail(name)` — HTML email templates in `lib/email-templates.ts`
-- Plan system is data-driven: edit `PLAN_METADATA` in `lib/constants.ts` to add/remove/modify tiers; everything else adapts
+- `sendEmail({ to, subject, html })` — sends via configured provider (Resend/SendGrid, via whop-kit/email)
+- `getAnalyticsScript()` — generates `<script>` tags for PostHog/GA/Plausible (via whop-kit/analytics)
+- `createWebhookHandler()` — declarative webhook event routing with signature verification (via whop-kit/webhooks)
+- Plan system is data-driven: edit `definePlans()` in `lib/constants.ts` to add/remove/modify tiers; everything else adapts
 - Client components get plan config as props from server parents, or fetch `/api/config/plans`
 - Admin-configurable accent color applied via CSS custom properties (`--accent`, `--accent-foreground`)
 - Admin-configurable integrations (analytics, error tracking, email) via Settings → Integrations
@@ -122,6 +147,7 @@ pnpm db:migrate   # Run migrations
 - `https://api.whop.com/api/v1/memberships/{id}/uncancel` — reverse pending cancellation
 
 ## Webhook Verification
+- Handled by `createWebhookHandler()` from whop-kit/webhooks
 - Whop uses standardwebhooks format (HMAC-SHA256)
 - Headers: `webhook-id`, `webhook-signature`, `webhook-timestamp`
 - Secret is used raw as HMAC key (no base64 decoding needed)
@@ -144,7 +170,7 @@ app/                        # Pages and API routes
     ├── setup/              # Config read/write + completion
     ├── config/             # plans, accent color, integrations
     ├── search/             # Fumadocs full-text search
-    └── webhooks/whop/      # Whop webhook handler
+    └── webhooks/whop/      # Whop webhook handler (via whop-kit/webhooks)
 components/
 ├── landing/                # Hero, features, testimonials, pricing cards, CTA, header, footer
 ├── dashboard/              # Sidebar, header, activity feed, upgrade/reactivate banners, delete account, integrations
@@ -155,16 +181,19 @@ db/
 ├── index.ts                # Prisma client singleton
 └── schema.prisma           # User (with isAdmin, cancelAtPeriodEnd) + SystemConfig models
 lib/
-├── auth.ts                 # JWT session + plan gating (requirePlan, hasMinimumPlan)
-├── subscription.ts         # Typed subscription/membership query helpers
-├── config.ts               # DB-backed config system (getConfig, getPlansConfig)
-├── whop.ts                 # Whop OAuth, webhook, access check helpers
-├── constants.ts            # Plan metadata (single source of truth), APP_NAME, derived types/helpers
-├── analytics.ts            # Analytics script generation (PostHog, GA, Plausible)
-├── email.ts                # Email sending (Resend, SendGrid)
+├── adapters/
+│   ├── next.ts             # CookieAdapter for Next.js cookies()
+│   └── prisma.ts           # DbAdapter + ConfigStore for Prisma
+├── auth.ts                 # Next.js session wrappers (delegates JWT ops to whop-kit/auth)
+├── subscription.ts         # Subscription helpers (delegates to whop-kit/subscriptions)
+├── config.ts               # App config system (delegates core to whop-kit/config)
+├── whop.ts                 # Whop API wrappers (re-exports + config-reading convenience functions)
+├── constants.ts            # Plan definitions via definePlans(), APP_NAME, derived types/helpers
+├── analytics.ts            # Analytics script generation (delegates to whop-kit/analytics)
+├── email.ts                # Email sending (delegates to whop-kit/email)
 ├── email-templates.ts      # HTML email templates (welcome, payment failed)
 ├── source.ts               # Fumadocs content source loader
-└── utils.ts                # cn(), formatDate()
+└── utils.ts                # Re-exports from whop-kit/utils
 proxy.ts                   # Protects /dashboard/* routes (Next.js 16 proxy)
 source.config.ts            # Fumadocs MDX content config
 mdx-components.tsx          # MDX component overrides

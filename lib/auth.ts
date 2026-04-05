@@ -1,43 +1,35 @@
+// ---------------------------------------------------------------------------
+// Auth — Next.js session management, powered by whop-kit
+// ---------------------------------------------------------------------------
+// Uses whop-kit/auth for JWT creation/verification and cookie management.
+// Next.js-specific wrappers (React.cache, redirect) live here.
+// ---------------------------------------------------------------------------
+
 import { cache } from "react";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SignJWT, jwtVerify } from "jose";
+import {
+  createSessionToken as _createSessionToken,
+  verifySessionToken as _verifySessionToken,
+  setSessionCookie as _setSessionCookie,
+  clearSessionCookie as _clearSessionCookie,
+  getSessionFromCookie,
+  generateSecret,
+  encodeSecret,
+} from "whop-kit/auth";
+import type { Session as BaseSession } from "whop-kit/auth";
+import { nextCookieAdapter } from "./adapters/next";
 import { prisma } from "@/db";
 import { PLAN_KEYS, PLAN_RANK, DEFAULT_PLAN, type PlanKey } from "./constants";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface Session {
-  userId: string;
-  whopUserId: string;
-  email: string | null;
-  name: string | null;
-  profileImageUrl: string | null;
+// App-specific Session type that narrows `plan` to our PlanKey union
+export interface Session extends Omit<BaseSession, "plan"> {
   plan: PlanKey;
-  cancelAtPeriodEnd: boolean;
-  isAdmin: boolean;
 }
 
 // ---------------------------------------------------------------------------
-// JWT helpers
+// Secret management
 // ---------------------------------------------------------------------------
 
-const SESSION_COOKIE = "session";
-const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
-
-/**
- * Resolve the JWT signing secret.
- *
- * Priority:
- * 1. SESSION_SECRET env var (explicit, recommended for production)
- * 2. Auto-generated secret stored in the SystemConfig table
- *
- * The auto-generated path means beginners never need to run `openssl rand`
- * — the app "just works" after deploy. The secret persists in the DB so
- * sessions survive across cold starts and redeploys.
- */
 let cachedSecret: Uint8Array | null = null;
 
 async function getSecret(): Promise<Uint8Array> {
@@ -46,7 +38,7 @@ async function getSecret(): Promise<Uint8Array> {
   // 1. Prefer explicit env var
   const envSecret = process.env.SESSION_SECRET;
   if (envSecret) {
-    cachedSecret = new TextEncoder().encode(envSecret);
+    cachedSecret = encodeSecret(envSecret);
     return cachedSecret;
   }
 
@@ -56,14 +48,12 @@ async function getSecret(): Promise<Uint8Array> {
   });
 
   if (existing) {
-    cachedSecret = new TextEncoder().encode(existing.value);
+    cachedSecret = encodeSecret(existing.value);
     return cachedSecret;
   }
 
-  // Generate a cryptographically secure 32-byte secret
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  const generated = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  // Generate a cryptographically secure secret
+  const generated = generateSecret();
 
   try {
     await prisma.systemConfig.create({
@@ -75,99 +65,43 @@ async function getSecret(): Promise<Uint8Array> {
       where: { key: "session_secret" },
     });
     if (raced) {
-      cachedSecret = new TextEncoder().encode(raced.value);
+      cachedSecret = encodeSecret(raced.value);
       return cachedSecret;
     }
-    // Shouldn't happen, but fall through with the generated value
   }
 
-  cachedSecret = new TextEncoder().encode(generated);
+  cachedSecret = encodeSecret(generated);
   return cachedSecret;
 }
 
+// ---------------------------------------------------------------------------
+// JWT helpers (thin wrappers that resolve the secret)
+// ---------------------------------------------------------------------------
+
 export async function createSessionToken(session: Session): Promise<string> {
   const secret = await getSecret();
-  return new SignJWT({ ...session })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime(`${SESSION_MAX_AGE}s`)
-    .sign(secret);
+  return _createSessionToken(session, secret);
 }
 
 export async function verifySessionToken(token: string): Promise<Session | null> {
-  try {
-    const secret = await getSecret();
-    const { payload } = await jwtVerify(token, secret);
-
-    // Validate that the JWT contains the required session fields
-    if (
-      typeof payload.userId !== "string" ||
-      typeof payload.whopUserId !== "string" ||
-      typeof payload.plan !== "string"
-    ) {
-      return null;
-    }
-
-    const plan = PLAN_KEYS.includes(payload.plan as PlanKey)
-      ? (payload.plan as PlanKey)
-      : DEFAULT_PLAN;
-
-    return {
-      userId: payload.userId,
-      whopUserId: payload.whopUserId,
-      email: (payload.email as string) ?? null,
-      name: (payload.name as string) ?? null,
-      profileImageUrl: (payload.profileImageUrl as string) ?? null,
-      plan,
-      cancelAtPeriodEnd: (payload.cancelAtPeriodEnd as boolean) ?? false,
-      isAdmin: (payload.isAdmin as boolean) ?? false,
-    };
-  } catch {
-    return null;
-  }
+  const secret = await getSecret();
+  // Safe cast: _verifySessionToken validates plan against PLAN_KEYS
+  return _verifySessionToken(token, secret, PLAN_KEYS, DEFAULT_PLAN) as Promise<Session | null>;
 }
 
 // ---------------------------------------------------------------------------
 // Cookie helpers
 // ---------------------------------------------------------------------------
 
-export async function setSessionCookie(session: Session) {
-  const token = await createSessionToken(session);
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: SESSION_MAX_AGE,
-    path: "/",
-  });
-  // Non-httpOnly indicator so client JS can detect login state
-  // without exposing the session token. Value is not sensitive.
-  cookieStore.set("logged_in", "1", {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: SESSION_MAX_AGE,
-    path: "/",
-  });
+const isProduction = process.env.NODE_ENV === "production";
+
+export async function setSessionCookie(session: Session): Promise<void> {
+  const secret = await getSecret();
+  return _setSessionCookie(session, secret, nextCookieAdapter(), isProduction);
 }
 
-export async function clearSessionCookie() {
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 0,
-    path: "/",
-  });
-  cookieStore.set("logged_in", "", {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 0,
-    path: "/",
-  });
+export async function clearSessionCookie(): Promise<void> {
+  return _clearSessionCookie(nextCookieAdapter(), isProduction);
 }
 
 // ---------------------------------------------------------------------------
@@ -176,39 +110,31 @@ export async function clearSessionCookie() {
 
 /**
  * Get the current session, or null if not authenticated.
- * Use this in server components and API routes.
- *
- * The JWT carries identity; the plan is always read fresh from the DB
- * (kept up-to-date by Whop webhooks) so it's never stale.
+ * The JWT carries identity; the plan is always read fresh from the DB.
  * Wrapped with React.cache() so multiple calls per request hit the DB once.
  */
 export const getSession = cache(async (): Promise<Session | null> => {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
-
-  const session = await verifySessionToken(token);
-  if (!session) return null;
-
-  // Fetch fresh plan + cancellation state from DB (PK lookup)
-  const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: { plan: true, cancelAtPeriodEnd: true },
-  });
-
-  // User was deleted — treat as logged out
-  if (!user) return null;
-
-  const freshPlan = PLAN_KEYS.includes(user.plan as PlanKey)
-    ? (user.plan as PlanKey)
-    : DEFAULT_PLAN;
-
-  return { ...session, plan: freshPlan, cancelAtPeriodEnd: user.cancelAtPeriodEnd };
+  const secret = await getSecret();
+  const base = await getSessionFromCookie(
+    nextCookieAdapter(),
+    secret,
+    PLAN_KEYS,
+    DEFAULT_PLAN,
+    async (userId) => {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { plan: true, cancelAtPeriodEnd: true },
+      });
+      if (!user) return null;
+      return { plan: user.plan, cancelAtPeriodEnd: user.cancelAtPeriodEnd };
+    },
+  );
+  // Safe cast: getSessionFromCookie validates plan against PLAN_KEYS
+  return base as Session | null;
 });
 
 /**
  * Require an authenticated session. Redirects to login if not authenticated.
- * Use this in server components for protected pages.
  */
 export async function requireSession(): Promise<Session> {
   const session = await getSession();
@@ -232,11 +158,6 @@ export function hasMinimumPlan(userPlan: PlanKey, minimumPlan: PlanKey): boolean
 
 /**
  * Require a minimum plan level. Redirects to /pricing if insufficient.
- * Use in server components for plan-gated pages.
- *
- * @example
- * // Only pro+ users can access this page
- * const session = await requirePlan("pro");
  */
 export async function requirePlan(
   minimumPlan: PlanKey,

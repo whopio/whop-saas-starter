@@ -88,7 +88,10 @@ export async function GET(request: NextRequest) {
 
   try {
     // Exchange the code for tokens
-    const tokens = await exchangeCodeForTokens(code, codeVerifier, redirectUri, whopAppId ?? undefined);
+    if (!whopAppId) {
+      return NextResponse.redirect(new URL("/auth-error?error=app_not_configured", request.url));
+    }
+    const tokens = await exchangeCodeForTokens(code, codeVerifier, redirectUri, whopAppId);
 
     // Validate the nonce from the id_token to prevent token substitution
     if (expectedNonce && tokens.id_token) {

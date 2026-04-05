@@ -1,12 +1,14 @@
 // ---------------------------------------------------------------------------
 // DB-backed configuration system
 // ---------------------------------------------------------------------------
-// Priority: in-memory cache → env var → SystemConfig table.
-// Follows the same pattern as getSecret() in auth.ts.
+// Uses whop-kit's createConfigManager for core read/write with caching.
+// Template-specific logic (env map, plan config, setup status) lives here.
 // ---------------------------------------------------------------------------
 
 import { cache as reactCache } from "react";
+import { createConfigManager } from "whop-kit/config";
 import { prisma } from "@/db";
+import { prismaConfigStore } from "./adapters/prisma";
 import {
   PLAN_METADATA,
   PLAN_KEYS,
@@ -22,11 +24,6 @@ import {
   type PlanKey,
   type BillingInterval,
 } from "./constants";
-
-// In-memory cache (per-process, survives across requests within same cold start)
-// Entries expire after CACHE_TTL_MS to prevent stale reads across serverless instances.
-const CACHE_TTL_MS = 30_000; // 30 seconds
-const cache = new Map<string, { value: string; expiresAt: number }>();
 
 // ---------------------------------------------------------------------------
 // Dynamic plan config key → env var mappings
@@ -86,57 +83,33 @@ for (const key of PLAN_KEYS) {
 }
 
 // ---------------------------------------------------------------------------
-// Core read/write
+// Config manager instance (powered by whop-kit)
+// ---------------------------------------------------------------------------
+
+const configManager = createConfigManager({
+  store: prismaConfigStore(prisma),
+  envMap: ENV_MAP,
+});
+
+// ---------------------------------------------------------------------------
+// Core read/write (delegates to whop-kit config manager)
 // ---------------------------------------------------------------------------
 
 export async function getConfig(key: string): Promise<string | null> {
-  // 1. In-memory cache (with TTL)
-  const cached = cache.get(key);
-  if (cached !== undefined && Date.now() < cached.expiresAt) return cached.value;
-  if (cached !== undefined) cache.delete(key); // expired
-
-  // 2. Env var fallback
-  const envKey = ENV_MAP[key];
-  if (envKey) {
-    const envVal = process.env[envKey];
-    if (envVal) {
-      cache.set(key, { value: envVal, expiresAt: Date.now() + CACHE_TTL_MS });
-      return envVal;
-    }
-  }
-
-  // 3. Database
-  try {
-    const row = await prisma.systemConfig.findUnique({ where: { key } });
-    if (row) {
-      cache.set(key, { value: row.value, expiresAt: Date.now() + CACHE_TTL_MS });
-      return row.value;
-    }
-  } catch {
-    // DB might not be ready yet (e.g. during first build)
-  }
-
-  return null;
+  return configManager.get(key);
 }
 
 export async function setConfig(key: string, value: string): Promise<void> {
   if (!VALID_KEYS.has(key)) throw new Error(`Invalid config key: ${key}`);
-
-  await prisma.systemConfig.upsert({
-    where: { key },
-    update: { value },
-    create: { key, value },
-  });
-  cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+  return configManager.set(key, value);
 }
 
 /** Bulk set config values */
 export async function setConfigs(configs: Record<string, string>): Promise<void> {
-  await Promise.all(
-    Object.entries(configs)
-      .filter(([, value]) => !!value)
-      .map(([key, value]) => setConfig(key, value))
+  const filtered = Object.fromEntries(
+    Object.entries(configs).filter(([key, value]) => !!value && VALID_KEYS.has(key)),
   );
+  return configManager.setMany(filtered);
 }
 
 /** Get setup status for each config key (true = configured, false = missing) */

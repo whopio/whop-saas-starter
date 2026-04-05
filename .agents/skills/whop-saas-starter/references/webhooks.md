@@ -4,52 +4,61 @@
 
 Whop sends webhook events to `POST /api/webhooks/whop` using the standardwebhooks format (HMAC-SHA256).
 
-**Verification** is automatic via `verifyWebhookSignature()` in `lib/whop.ts`. Headers checked:
-- `webhook-id` — unique event ID
-- `webhook-signature` — HMAC signature
-- `webhook-timestamp` — event timestamp (5-minute tolerance)
+This template uses `createWebhookHandler()` from **whop-kit/webhooks** which handles:
+- **Signature verification** — HMAC-SHA256 with constant-time comparison
+- **Replay attack prevention** — 5-minute timestamp tolerance
+- **JSON parsing** — with proper error handling
+- **Payload size guard** — rejects oversized payloads
+- **Event routing** — declarative `on: { event_type: handler }` mapping
+- **Error handling** — returns 500 on handler errors (triggers Whop retry)
 
 ## Currently Handled Events
 
-| Event | Handler | Effect |
-|-------|---------|--------|
-| `membership_activated` | `activateMembership()` | Sets user plan + membership ID |
-| `membership_deactivated` | `deactivateMembership()` | Resets to free plan |
-| `membership_cancel_at_period_end_changed` | `updateCancelAtPeriodEnd()` | Updates cancellation flag |
+| Event | Effect |
+|-------|--------|
+| `membership_activated` | Sets user plan + membership ID |
+| `membership_deactivated` | Resets to free plan |
+| `membership_cancel_at_period_end_changed` | Updates cancellation flag |
+| `payment_succeeded` | Logged |
+| `payment_failed` | Logged + sends email notification |
+| `refund_created` | Resets to free plan |
+| `dispute_created` | Resets to free plan |
 
 ## Adding a New Webhook Event
 
-Edit `app/api/webhooks/whop/route.ts`:
+Edit `app/api/webhooks/whop/route.ts` — add a handler to the `on` object inside `createWebhookHandler()`:
 
-```tsx
-switch (event) {
-  case "membership_activated":
-    // existing...
-    break;
+```typescript
+const handle = createWebhookHandler({
+  secret: webhookSecret,
+  on: {
+    // existing handlers...
 
-  case "your_new_event":
-    // Your handler
-    const { relevant_field } = body.data;
-    await prisma.user.updateMany({
-      where: { whopUserId },
-      data: { /* ... */ },
-    });
-    break;
-}
+    your_new_event: async (data) => {
+      const userId = data.user_id as string;
+      if (!userId) return;
+      // Your handler logic
+      console.log(`[Webhook] Handled your_new_event for ${userId}`);
+    },
+  },
+});
 ```
 
 ### Best practices:
-- Use `updateMany` (not `update`) to handle edge cases with whopUserId
-- Always return 200 even if you don't handle the event (prevents retries)
-- Log unknown events for debugging but don't error
+- Handlers receive `(data, event)` — `data` is the payload, `event` includes the `type`
+- Cast data fields: `data.user_id as string` (whop-kit uses `Record<string, unknown>`)
+- Return early if required fields are missing (don't throw)
+- Unhandled events automatically return 200 (no retry)
+- Handler errors automatically return 500 (triggers Whop retry)
 
-## Webhook Write Helpers
+## Subscription Helpers
 
-Located in `lib/subscription.ts`:
+The webhook handlers use `createSubscriptionHelpers()` from whop-kit/subscriptions, bound to the Prisma DB adapter in `lib/subscription.ts`:
 
 - `activateMembership(whopUserId, plan, membershipId)` — upserts user with plan
 - `deactivateMembership(whopUserId)` — resets to DEFAULT_PLAN
 - `updateCancelAtPeriodEnd(whopUserId, boolean)` — updates cancellation state
+- `getUserForNotification(whopUserId)` — gets email + name for notifications
 
 ## Setting Up Webhooks
 

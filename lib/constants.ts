@@ -2,6 +2,9 @@
 // App configuration — edit these to customize your SaaS
 // ---------------------------------------------------------------------------
 
+import { definePlans } from "whop-kit/core";
+export type { BillingInterval, PlanMetadataEntry } from "whop-kit/core";
+
 /** Your app's name — shown in the header, sidebar, login page, and metadata */
 export const APP_NAME = "Whop SaaS Starter";
 
@@ -17,36 +20,19 @@ export const LINKS = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// Plan types and static metadata
+// Plan definitions — the single source of truth for your tier structure
 // ---------------------------------------------------------------------------
 
-export type BillingInterval = "monthly" | "yearly";
-
-/** Shape of each plan entry in PLAN_METADATA */
-export interface PlanMetadataEntry {
-  name: string;
-  description: string;
-  priceMonthly: number;
-  priceYearly: number;
-  features: readonly string[];
-  highlighted: boolean;
-  /** Optional free trial length (display only — configure the actual trial in Whop) */
-  trialDays?: number;
-  /** Which billing intervals to offer. Defaults to ["monthly", "yearly"] if omitted. */
-  billingIntervals?: readonly BillingInterval[];
-}
-
 /**
- * Static plan metadata — the single source of truth for your tier structure.
+ * Static plan metadata — powered by whop-kit's definePlans().
  *
  * - Add, remove, or reorder plans here. Everything else adapts automatically.
  * - Key order defines the plan hierarchy (first = lowest, last = highest).
  * - Dynamic Whop plan IDs come from the DB/env via lib/config.ts.
  * - Prices are synced from the Whop API (set to 0 here as defaults).
- *   getPlansConfig() auto-syncs when plan IDs exist but prices are missing.
  * - trialDays is display-only; configure the actual trial in your Whop Dashboard.
  */
-export const PLAN_METADATA = {
+export const plans = definePlans({
   free: {
     name: "Free",
     description: "Get started with the basics",
@@ -91,52 +77,25 @@ export const PLAN_METADATA = {
     ],
     highlighted: false,
   },
-} as const satisfies Record<string, PlanMetadataEntry>;
+});
 
 // ---------------------------------------------------------------------------
-// Derived types and helpers — everything below is auto-generated from above
+// Backwards-compatible exports — derived from the plan system
+// Everything below is auto-derived so existing imports keep working.
 // ---------------------------------------------------------------------------
 
-/** Plan key type — derived from whatever keys are in PLAN_METADATA */
+export const PLAN_METADATA = plans.metadata;
 export type PlanKey = keyof typeof PLAN_METADATA;
+export const PLAN_KEYS = plans.keys;
+export const PLAN_RANK = plans.ranks as Record<string, number>;
+export const DEFAULT_PLAN = plans.defaultPlan;
 
-/** Ordered array of plan keys (insertion order = hierarchy) */
-export const PLAN_KEYS = Object.keys(PLAN_METADATA) as PlanKey[];
-
-/** Numeric rank for each plan (used for plan gating comparisons) */
-export const PLAN_RANK: Record<string, number> = Object.fromEntries(
-  PLAN_KEYS.map((key, index) => [key, index])
-);
-
-/** The lowest-tier plan key (first in PLAN_METADATA). Also the Prisma default. */
-export const DEFAULT_PLAN: PlanKey = PLAN_KEYS[0];
-
-/** Get the billing intervals a plan supports */
-export function getPlanBillingIntervals(key: PlanKey): BillingInterval[] {
-  const meta: PlanMetadataEntry = PLAN_METADATA[key];
-  return [...(meta.billingIntervals ?? ["monthly", "yearly"])];
-}
-
-// Config key naming convention: whop_{planKey}_plan_id / whop_{planKey}_plan_id_yearly
-export function planConfigKey(planKey: PlanKey): string {
-  return `whop_${planKey}_plan_id`;
-}
-export function planConfigKeyYearly(planKey: PlanKey): string {
-  return `whop_${planKey}_plan_id_yearly`;
-}
-
-// Price config key naming: whop_{planKey}_price_monthly / whop_{planKey}_price_yearly
-export function planPriceConfigKey(planKey: PlanKey): string {
-  return `whop_${planKey}_price_monthly`;
-}
-export function planPriceConfigKeyYearly(planKey: PlanKey): string {
-  return `whop_${planKey}_price_yearly`;
-}
-
-// Plan name config key: plan_{planKey}_name (for admin-customized names)
-export function planNameConfigKey(planKey: PlanKey): string {
-  return `plan_${planKey}_name`;
-}
+export const getPlanBillingIntervals = plans.getBillingIntervals;
+export const planConfigKey = plans.configKey;
+export const planConfigKeyYearly = plans.configKeyYearly;
+export const planPriceConfigKey = plans.priceConfigKey;
+export const planPriceConfigKeyYearly = plans.priceConfigKeyYearly;
+export const planNameConfigKey = plans.nameConfigKey;
 
 // Env var naming convention: NEXT_PUBLIC_WHOP_{PLAN_KEY}_PLAN_ID
 export function planEnvVar(planKey: PlanKey): string {
