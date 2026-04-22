@@ -1,37 +1,11 @@
 /**
- * Activity Feed — placeholder component for the dashboard overview.
+ * Activity Feed — shows real user events from the database.
  *
- * Replace the static `activities` array with real data from your database.
- * Each entry needs: type (for the icon), description, and timestamp (ISO string).
+ * Events are logged from auth callbacks (sign_in, account),
+ * webhook handlers (plan_change), and settings endpoints (setting).
  */
 
-const activities: Activity[] = [
-  {
-    type: "sign_in",
-    description: "You signed in",
-    timestamp: hoursAgo(1),
-  },
-  {
-    type: "plan_change",
-    description: "Upgraded to Pro plan",
-    timestamp: daysAgo(2),
-  },
-  {
-    type: "setting",
-    description: "Updated account settings",
-    timestamp: daysAgo(3),
-  },
-  {
-    type: "sign_in",
-    description: "You signed in",
-    timestamp: daysAgo(5),
-  },
-  {
-    type: "account",
-    description: "Account created",
-    timestamp: daysAgo(7),
-  },
-];
+import { getRecentActivity } from "@/lib/activity";
 
 type ActivityType = "sign_in" | "plan_change" | "setting" | "account";
 
@@ -42,7 +16,26 @@ interface Activity {
   timestamp: string;
 }
 
-export function ActivityFeed() {
+export async function ActivityFeed({ userId }: { userId: string }) {
+  const events = await getRecentActivity(userId);
+
+  const activities: Activity[] = events.map((e) => ({
+    type: e.type as ActivityType,
+    description: e.description,
+    timestamp: e.createdAt.toISOString(),
+  }));
+
+  if (activities.length === 0) {
+    return (
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5">
+        <h2 className="text-sm font-semibold">Recent Activity</h2>
+        <p className="mt-3 text-xs text-[var(--muted)]">
+          No activity yet. Events will appear here as you use the app.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5">
       <h2 className="text-sm font-semibold">Recent Activity</h2>
@@ -144,10 +137,3 @@ function ActivityIcon({ type }: { type: ActivityType }) {
   }
 }
 
-function hoursAgo(n: number): string {
-  return new Date(Date.now() - n * 3_600_000).toISOString();
-}
-
-function daysAgo(n: number): string {
-  return new Date(Date.now() - n * 86_400_000).toISOString();
-}

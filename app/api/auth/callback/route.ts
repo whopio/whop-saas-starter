@@ -8,6 +8,7 @@ import { getConfig } from "@/lib/config";
 import { DEFAULT_PLAN, PLAN_KEYS, type PlanKey, APP_NAME } from "@/lib/constants";
 import { sendEmail } from "@/lib/email";
 import { welcomeEmail } from "@/lib/email-templates";
+import { logActivity } from "@/lib/activity";
 
 /**
  * GET /api/auth/callback?code=...&state=...
@@ -168,16 +169,20 @@ export async function GET(request: NextRequest) {
 
     await setSessionCookie(session);
 
-    // Send welcome email for new users (runs after response is sent)
-    if (!existingUser && user.email) {
-      const { email: userEmail, name: userName } = user;
-      after(async () => {
-        const emailContent = welcomeEmail(userName);
-        await sendEmail({ to: userEmail, ...emailContent }).catch((err) =>
-          console.error("[Email] Welcome email failed:", err)
-        );
-      });
-    }
+    // Log activity + send welcome email (runs after response is sent)
+    after(async () => {
+      if (!existingUser) {
+        await logActivity(user.id, "account", "Account created");
+        if (user.email) {
+          const emailContent = welcomeEmail(user.name);
+          await sendEmail({ to: user.email, ...emailContent }).catch((err) =>
+            console.error("[Email] Welcome email failed:", err)
+          );
+        }
+      } else {
+        await logActivity(user.id, "sign_in", "Signed in");
+      }
+    });
 
     return NextResponse.redirect(new URL(next, request.url));
   } catch (err) {

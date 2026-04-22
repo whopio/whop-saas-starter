@@ -44,7 +44,7 @@ export function Hero() {
         </div>
       </div>
 
-      {/* Replace this placeholder with a screenshot or demo of your product */}
+      {/* Product demo video */}
       <div className="animate-scale-in delay-400 mx-auto max-w-5xl px-4 pb-16 sm:px-6 sm:pb-20 lg:pb-24">
         <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-xl shadow-black/[0.03] dark:shadow-none">
           <div className="border-b border-[var(--border)] px-4 py-2.5 flex items-center gap-1.5">
@@ -52,16 +52,16 @@ export function Hero() {
             <div className="h-2 w-2 rounded-full bg-[var(--border)]" />
             <div className="h-2 w-2 rounded-full bg-[var(--border)]" />
           </div>
-          <div className="flex h-48 items-center justify-center sm:h-72">
-            <div className="text-center px-6">
-              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--surface)]">
-                <svg className="h-5 w-5 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
-                </svg>
-              </div>
-              <p className="text-xs text-[var(--muted)]">Replace with a screenshot of your product</p>
-            </div>
-          </div>
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="w-full"
+            aria-label="Product demo"
+          >
+            <source src="https://whopvideo.app/videos/1774392074690-at3jhcz8.mp4" type="video/mp4" />
+          </video>
         </div>
       </div>
     </section>

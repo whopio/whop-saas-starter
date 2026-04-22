@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { setConfig, getConfig } from "@/lib/config";
+import { logActivity } from "@/lib/activity";
 
 /** Valid integration config keys that can be set via this endpoint */
 const INTEGRATION_KEYS = new Set([
@@ -74,5 +75,6 @@ export async function POST(request: Request) {
   );
 
   revalidatePath("/", "layout");
+  after(() => logActivity(session.userId, "setting", "Updated integrations"));
   return NextResponse.json({ saved: true });
 }

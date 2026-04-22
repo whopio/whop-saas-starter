@@ -10,6 +10,7 @@ import {
   updateCancelAtPeriodEnd,
   getUserForNotification,
 } from "@/lib/subscription";
+import { logActivityByWhopId } from "@/lib/activity";
 
 /**
  * POST /api/webhooks/whop
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
         if (!userId || !planId) return;
         const plan = await getPlanKeyFromWhopId(planId);
         await activateMembership(userId, plan, id ?? null);
+        await logActivityByWhopId(userId, "plan_change", `Upgraded to ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan`);
         console.log(`[Webhook] User ${userId} upgraded to ${plan}`);
       },
 
@@ -51,6 +53,7 @@ export async function POST(request: NextRequest) {
         const userId = data.user_id as string | undefined;
         if (!userId) return;
         await deactivateMembership(userId);
+        await logActivityByWhopId(userId, "plan_change", "Subscription ended");
         console.log(`[Webhook] User ${userId} downgraded to free`);
       },
 
@@ -59,6 +62,11 @@ export async function POST(request: NextRequest) {
         if (!userId) return;
         const value = (data.cancel_at_period_end as boolean) ?? false;
         await updateCancelAtPeriodEnd(userId, value);
+        await logActivityByWhopId(
+          userId,
+          "plan_change",
+          value ? "Scheduled subscription cancellation" : "Reactivated subscription",
+        );
         console.log(`[Webhook] User ${userId} cancel_at_period_end → ${value}`);
       },
 

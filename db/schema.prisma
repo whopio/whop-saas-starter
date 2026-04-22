@@ -19,8 +19,22 @@ model User {
   createdAt       DateTime @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime @updatedAt @db.Timestamptz(3)
 
+  activities ActivityEvent[]
+
   @@index([email])
   @@index([plan])
+}
+
+/// User activity events (sign-ins, plan changes, settings updates).
+model ActivityEvent {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // "sign_in" | "plan_change" | "setting" | "account"
+  description String
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 /// Internal key-value config (e.g. auto-generated SESSION_SECRET).

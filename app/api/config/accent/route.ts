@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { setConfig, getConfig } from "@/lib/config";
+import { logActivity } from "@/lib/activity";
 
 /** POST /api/config/accent — Save accent color (admin only) */
 export async function POST(request: Request) {
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
 
   await setConfig("accent_color", color);
   revalidatePath("/", "layout");
+  after(() => logActivity(session.userId, "setting", "Updated accent color"));
   return NextResponse.json({ saved: true });
 }
 

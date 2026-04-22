@@ -157,10 +157,10 @@ export default async function DashboardPage() {
         </PlanGate>
       </div>
 
-      {/* Activity feed — replace placeholder data with real events from your DB */}
+      {/* Activity feed — real events from sign-ins, plan changes, settings */}
       <Suspense fallback={<ActivityFeedSkeleton />}>
         <div className="animate-slide-up delay-400">
-          <ActivityFeed />
+          <ActivityFeed userId={session.userId} />
         </div>
       </Suspense>
 

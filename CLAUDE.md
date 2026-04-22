@@ -109,6 +109,7 @@ This template uses **whop-kit** (`whop-kit` on npm) for all core functionality. 
 - Force SSL on/off with `DATABASE_SSL=true|false` if needed
 - Schema auto-pushed on `pnpm build` if `DATABASE_URL` is set (via `scripts/db-push.mjs`)
 - Indexes: `whopUserId` (unique), `email`, `plan`
+- `ActivityEvent` model logs user events (sign-ins, plan changes, settings updates) for the dashboard activity feed
 
 ## Tech Stack
 - **Next.js 16** (App Router), **TypeScript**, **Tailwind CSS v4**
@@ -124,6 +125,9 @@ This template uses **whop-kit** (`whop-kit` on npm) for all core functionality. 
 - `requirePlan("starter")` — get session or redirect to `/pricing` if plan insufficient. Hierarchy is auto-derived from key order in `definePlans()`.
 - `hasMinimumPlan(userPlan, minimumPlan)` — pure function for plan level comparison in API routes
 - `<PlanGate plan={session.plan} minimum="starter">` — client component for conditional rendering (pass plan from server parent)
+- `logActivity(userId, type, description)` — fire-and-forget activity logging (used with `after()` in API routes)
+- `logActivityByWhopId(whopUserId, type, description)` — same but resolves internal user ID from Whop ID (used in webhook handlers)
+- `getRecentActivity(userId, limit?)` — fetch recent activity events for the dashboard feed
 - `checkWhopAccess(whopUserId, productId, apiKey)` / `hasWhopAccess(whopUserId, productId)` — real-time Whop API access checks
 - `getSubscriptionDetails(userId)` — typed subscription lookup; returns `{ hasSubscription, subscription?, error? }`
 - `isUserSubscribed(userId)` — boolean check for active paid subscription
@@ -190,6 +194,7 @@ lib/
 ├── whop.ts                 # Whop API wrappers (re-exports + config-reading convenience functions)
 ├── constants.ts            # Plan definitions via definePlans(), APP_NAME, derived types/helpers
 ├── analytics.ts            # Analytics script generation (delegates to whop-kit/analytics)
+├── activity.ts             # Activity event logging and querying (sign-ins, plan changes, settings)
 ├── email.ts                # Email sending (delegates to whop-kit/email)
 ├── email-templates.ts      # HTML email templates (welcome, payment failed)
 ├── source.ts               # Fumadocs content source loader
