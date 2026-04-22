@@ -14,19 +14,19 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.6.0",
-    "@prisma/client": "^7.6.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "@types/mdx": "^2.0.13",
     "@whop/checkout": "^0.0.52",
-    "fumadocs-core": "^16.7.10",
-    "fumadocs-mdx": "^14.2.11",
-    "fumadocs-ui": "^16.7.10",
+    "fumadocs-core": "^16.8.1",
+    "fumadocs-mdx": "^14.3.1",
+    "fumadocs-ui": "^16.8.1",
     "jose": "^6.2.2",
-    "whop-kit": "^0.2.0",
-    "next": "^16.2.2",
+    "next": "^16.2.4",
     "pg": "^8.20.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "whop-kit": "^0.2.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -45,15 +45,15 @@
   ],
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
-    "@tailwindcss/postcss": "^4.2.2",
-    "@types/node": "^25.5.2",
+    "@tailwindcss/postcss": "^4.2.4",
+    "@types/node": "^25.6.0",
     "@types/pg": "8.20.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "eslint": "^10.2.0",
-    "eslint-config-next": "^16.2.2",
-    "prisma": "^7.6.0",
-    "tailwindcss": "^4.2.2",
-    "typescript": "^5.9.3"
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.4",
+    "prisma": "^7.8.0",
+    "tailwindcss": "^4.2.4",
+    "typescript": "^6.0.3"
   }
 }
