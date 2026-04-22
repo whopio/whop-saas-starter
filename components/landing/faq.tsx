@@ -13,32 +13,32 @@ const faqs = [
   {
     question: "What do I need to get started?",
     answer:
-      "Just a Whop account and a database. Run the CLI, follow the setup wizard, and you'll have a fully working SaaS with auth, payments, and a dashboard in minutes. Deploy to Vercel for the fastest path to production.",
+      "Just a Whop account. Run npx create-whop-kit and the CLI handles everything — it scaffolds your project, provisions a database, creates your Whop app, sets up pricing plans, deploys to Vercel, and pushes to GitHub. The whole process takes a few minutes.",
+  },
+  {
+    question: "Do I need to set up a database manually?",
+    answer:
+      "No. The CLI auto-provisions a PostgreSQL database for you via Neon, Supabase, or Prisma Postgres. If you prefer, you can also bring your own PostgreSQL connection string — any provider works.",
+  },
+  {
+    question: "How do I create pricing plans?",
+    answer:
+      "The CLI walks you through creating plans on Whop during setup. You define your tiers in a single file — the pricing page, plan gating, checkout, and webhooks all adapt automatically. Prices are synced from Whop so you manage billing in one place.",
   },
   {
     question: "How does authentication work?",
     answer:
-      "Users sign in via Whop using OAuth 2.1 with PKCE — no passwords to manage, no auth library to configure. Sessions are stored as signed JWTs in httpOnly cookies with a 7-day TTL.",
+      "Users sign in via Whop using OAuth 2.1 with PKCE — no passwords to store, no auth library to configure. The first user to sign in becomes the admin. Sessions are secure httpOnly cookies with 7-day expiry.",
   },
   {
-    question: "How are payments handled?",
+    question: "Can I deploy this anywhere?",
     answer:
-      "Payments are processed through Whop. You define your plans in the Whop dashboard, connect them via the setup wizard, and the starter handles checkout, webhooks, plan gating, and billing portal access automatically.",
-  },
-  {
-    question: "Can I customize the plans and pricing?",
-    answer:
-      "Yes. Plans are data-driven — edit the definePlans() call in one file and everything adapts: pricing page, plan gating, checkout, webhooks, and the dashboard. Add, remove, or reorder tiers without touching any other code.",
-  },
-  {
-    question: "What database can I use?",
-    answer:
-      "Any PostgreSQL provider — Neon, Supabase, Prisma Postgres, or your own. The CLI can auto-provision a database for you, or you can bring your own connection string.",
+      "Yes. The CLI can deploy to Vercel automatically with GitHub integration, but it's a standard Next.js app — Railway, Fly.io, Render, or any platform that supports Node.js and SSR will work.",
   },
   {
     question: "Is this a Whop app or a standalone site?",
     answer:
-      "It's a standalone Next.js app on your own domain. It uses Whop for auth and payments but runs independently — no iframes, no Whop proxy. You own the full stack and can deploy it anywhere.",
+      "It's a standalone Next.js app on your own domain. Whop handles auth and payments behind the scenes, but there are no iframes or proxies — you own and control the full stack.",
   },
 ];
 
