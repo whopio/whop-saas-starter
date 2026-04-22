@@ -63,7 +63,7 @@ export function FAQ() {
               <button
                 type="button"
                 onClick={() => setOpenIndex(openIndex === i ? null : i)}
-                className="flex w-full items-center justify-between gap-4 py-5 text-left transition-colors hover:text-[var(--foreground)]"
+                className="flex w-full cursor-pointer items-center justify-between gap-4 py-5 text-left transition-colors hover:text-[var(--foreground)]"
                 aria-expanded={openIndex === i}
               >
                 <span className="text-sm font-medium">{faq.question}</span>
