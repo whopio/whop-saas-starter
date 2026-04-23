@@ -4,11 +4,23 @@ A production-ready SaaS starter template built with **Next.js 16**, **Whop** (fo
 
 Authentication, payments, subscription management, and a clean dashboard — wired up and ready to go.
 
-## Deploy to Vercel (Recommended)
+## Get started
 
-The fastest way to get started. Click the button, follow the prompts, and you'll have a running app in minutes.
+### Option 1: CLI (recommended)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fcolinmcdermott%2Fwhop-saas-starter&project-name=whop-saas-starter&repository-name=whop-saas-starter&envDescription=No+env+vars+needed%21+The+in-app+setup+wizard+handles+everything.&demo-title=Whop+SaaS+Starter&demo-description=A+production-ready+SaaS+starter+with+auth%2C+payments%2C+and+a+dashboard+%E2%80%94+powered+by+Whop.&demo-url=https%3A%2F%2Fwhop-saas-starter.vercel.app&demo-image=https%3A%2F%2Fwhop-saas-starter.vercel.app%2Fscreenshot.jpg&products=%5B%7B%22type%22%3A%22integration%22%2C%22group%22%3A%22postgres%22%7D%5D)
+The fastest path — scaffolds your project, provisions a database, deploys to Vercel, and creates your Whop app with pricing plans, all from the terminal.
+
+```bash
+npx create-whop-kit
+```
+
+The CLI supports **Next.js**, **Astro**, and **TanStack Start**. It auto-provisions a database via Neon, Supabase, or Prisma Postgres.
+
+### Option 2: Deploy to Vercel
+
+One-click deploy — no terminal needed.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fwhopio%2Fwhop-saas-starter&project-name=whop-saas-starter&repository-name=whop-saas-starter&envDescription=No+env+vars+needed%21+The+in-app+setup+wizard+handles+everything.&demo-title=Whop+SaaS+Starter&demo-description=A+production-ready+SaaS+starter+with+auth%2C+payments%2C+and+a+dashboard+%E2%80%94+powered+by+Whop.&demo-url=https%3A%2F%2Fwhop-saas-starter.vercel.app&demo-image=https%3A%2F%2Fwhop-saas-starter.vercel.app%2Fscreenshot.jpg&products=%5B%7B%22type%22%3A%22integration%22%2C%22group%22%3A%22postgres%22%7D%5D)
 
 > **What happens when you click Deploy:**
 > 1. Vercel clones the repo to your GitHub account
@@ -18,154 +30,61 @@ The fastest way to get started. Click the button, follow the prompts, and you'll
 
 No environment variables to fill in manually. The setup wizard handles everything.
 
----
+### Option 3: Clone from GitHub
 
-## Setup Wizard
-
-After deploying, visit your app URL. The **setup wizard** will appear automatically and guide you through:
-
-1. **Connect Whop** — Enter your App ID and API Key
-2. **Configure OAuth** — Copy-paste your redirect URI and webhook URL
-3. **Sign in** — Test OAuth and become the admin
-4. **Set up plans** — Enter your Whop plan IDs for pricing tiers
-
-The wizard stores all config in your database — no environment variables needed.
-
----
-
-## Manual Setup (Alternative)
-
-If you prefer setting things up via environment variables (or for CI/CD), follow these steps.
-
-### Step 1: Clone the repo and install dependencies
+If you want full control from the start:
 
 ```bash
 git clone https://github.com/whopio/whop-saas-starter.git
 cd whop-saas-starter
 pnpm install
-```
-
-Then copy the environment template:
-
-```bash
 cp .env.example .env.local
 ```
 
-### Step 2: Set up a PostgreSQL database
+Set your `DATABASE_URL` in `.env.local`, then:
 
-You need a PostgreSQL database to store user accounts, sessions, and app config.
+```bash
+pnpm db:push   # Create database tables
+pnpm dev       # Start dev server
+```
 
-1. Create a free database with [Neon](https://neon.tech), [Supabase](https://supabase.com), or [Prisma Postgres](https://www.prisma.io/postgres)
-2. Copy the connection string (starts with `postgresql://...`)
-3. Add it as `DATABASE_URL` in `.env.local` (or Vercel Environment Variables if deploying)
-4. Push the database schema:
-   ```bash
-   pnpm db:push
-   ```
-
-> **Tip:** If you used the Deploy to Vercel button and added a Postgres integration, this is already done — `DATABASE_URL` is set automatically and the schema is pushed during build.
-
-### Step 3: Create a Whop app
-
-1. Go to [whop.com/dashboard/developer](https://whop.com/dashboard/developer)
-2. Click **Create App**
-3. You'll see your app credentials:
-   - **Client ID** — looks like `app_xxxxxxxxx`
-   - **API Key** — looks like `apik_xxxxxxxxx`
-4. Under the **OAuth** section:
-   - Set **Client mode** to **Public**
-   - Add your **Redirect URI**:
-     - `https://YOUR-APP.vercel.app/api/auth/callback`
-     - (Replace `YOUR-APP` with your actual Vercel domain)
-
-> **Why Public mode?** It uses PKCE (a secure code exchange) instead of a static client secret. This is the recommended approach and what this template is built for.
-
-### Step 4: Create your plans in Whop
-
-You need to create plans (pricing tiers) in Whop so users can subscribe.
-
-1. Go to [whop.com/dashboard](https://whop.com/dashboard)
-2. Create a **product** for each tier (e.g., Free, Starter, Pro)
-3. For each product, create a **plan** with the price you want
-   - For the Free tier: create a $0 plan (this lets you manage all users in Whop)
-4. Copy each **Plan ID** — it looks like `plan_xxxxxxxxx`
-   - Find it in the plan's settings or checkout link details
-   - **Important:** Use the `plan_` ID, not the `prod_` ID
-
-> **Where to find Plan IDs:** Go to your product → Checkout links → click Details on any pricing option. The Plan ID starts with `plan_`.
-
-### Step 5: Add environment variables
-
-Add these to `.env.local` (or your Vercel project's **Settings** → **Environment Variables** if deploying):
-
-| Variable | Where to find it | Example |
-|---|---|---|
-| `NEXT_PUBLIC_WHOP_APP_ID` | Whop Developer Dashboard → your app | `app_xxxxxxxxx` |
-| `WHOP_API_KEY` | Whop Developer Dashboard → your app | `apik_xxxxxxxxx` |
-| `NEXT_PUBLIC_APP_URL` | Your Vercel deployment URL | `https://your-app.vercel.app` |
-| `DATABASE_URL` | Auto-set if you added Postgres during deploy | `postgresql://...` |
-| `NEXT_PUBLIC_WHOP_FREE_PLAN_ID` | Whop Dashboard → your Free plan | `plan_xxxxxxxxx` |
-| `NEXT_PUBLIC_WHOP_STARTER_PLAN_ID` | Whop Dashboard → your Starter monthly plan | `plan_xxxxxxxxx` |
-| `NEXT_PUBLIC_WHOP_STARTER_PLAN_ID_YEARLY` | Whop Dashboard → your Starter yearly plan | `plan_xxxxxxxxx` |
-| `NEXT_PUBLIC_WHOP_PRO_PLAN_ID` | Whop Dashboard → your Pro monthly plan | `plan_xxxxxxxxx` |
-| `NEXT_PUBLIC_WHOP_PRO_PLAN_ID_YEARLY` | Whop Dashboard → your Pro yearly plan | `plan_xxxxxxxxx` |
-| `SESSION_SECRET` | **Optional.** Auto-generated and stored in DB if not set | `a1b2c3d4...` |
-
-> **Tip:** If you added a Postgres database during the Vercel deploy, `DATABASE_URL` is already set. Check your Environment Variables to confirm.
-
-> **About SESSION_SECRET:** A secret key used to sign login sessions. You don't need to set this — the app automatically generates one and stores it in your database. If you prefer to manage it yourself, set any random 32+ character string.
-
-After adding the variables, **redeploy** your app (Vercel → Deployments → click the three dots on the latest deployment → Redeploy).
-
-### Step 6: Set up webhooks
-
-Webhooks tell your app when someone subscribes, cancels, or gets refunded.
-
-1. Go to [whop.com/dashboard/developer](https://whop.com/dashboard/developer)
-2. Select your app → **Webhooks**
-3. Click **Create Webhook**
-4. Set the URL to: `https://YOUR-APP.vercel.app/api/webhooks/whop`
-5. Subscribe to these events:
-   - `membership_activated`
-   - `membership_deactivated`
-   - `payment_succeeded`
-   - `payment_failed`
-   - `refund_created`
-   - `dispute_created`
-6. Copy the **Webhook Secret** and add it as `WHOP_WEBHOOK_SECRET` in your Vercel env vars
-7. **Redeploy** again after adding the webhook secret
-
-### Step 7: Test it
-
-1. Visit your app URL
-2. Click **Sign in** — you should be redirected to Whop's login page
-3. After signing in, you should land on the dashboard
-4. Go to the pricing page and try subscribing to a plan
-5. Check the Whop dashboard to see the subscription
-
-**That's it! Your SaaS is live.**
+Visit `http://localhost:3000` — the setup wizard will guide you through connecting Whop, setting up OAuth, and configuring plans.
 
 ---
 
-## Local Development
+## Setup wizard
 
-Follow Steps 1–5 above to clone the repo, set up a database, and configure your environment variables in `.env.local`.
+After deploying (via any method), the setup wizard appears automatically on first visit. It walks you through:
 
-For local webhook testing, use [ngrok](https://ngrok.com) to expose your local server:
+1. **Database check** — verifies your connection and schema
+2. **Connect Whop** — enter your App ID and API Key (or paste the env block from Whop)
+3. **Configure OAuth** — copy-paste your redirect URI
+4. **Set up webhooks** — copy-paste your webhook URL and secret
+5. **Sign in** — test OAuth and become the admin
+6. **Connect plans** — enter your Whop plan IDs (the wizard validates them against the Whop API)
 
-```bash
-ngrok http 3000
-```
+The wizard stores all config in your database — no environment variables needed.
 
-Then add the ngrok URL as a webhook endpoint in Whop: `https://xxxx.ngrok.io/api/webhooks/whop`
+---
 
-Start the dev server:
+## Test the full flow
 
-```bash
-pnpm dev
-```
+Once setup is complete, verify everything works:
 
-Open [http://localhost:3000](http://localhost:3000).
+1. **Sign in** — click "Sign in" on your landing page. You should be redirected to Whop, then back to your dashboard after authenticating. The dashboard should show your name and "Free" as your plan.
+
+2. **Pricing page** — go to `/pricing`. You should see your plan tiers with the correct prices (synced from Whop). The monthly/yearly toggle should work.
+
+3. **Checkout** — click a paid plan. You should see a billing form followed by the embedded Whop checkout. Complete a test payment.
+
+4. **Plan upgrade** — after payment, you should be redirected to the dashboard. Your plan should now show the tier you purchased. Plan-gated features should be unlocked.
+
+5. **Billing portal** — click "Billing" in the sidebar. You should be redirected to Whop's self-service portal where you can manage your subscription.
+
+If something isn't working, check:
+- **OAuth fails:** verify the redirect URI in your Whop app matches exactly (including `https://` and no trailing slash)
+- **Plans don't show prices:** check that plan IDs are connected (Settings → or re-run the setup wizard)
+- **Webhooks not syncing:** verify the webhook URL and secret are configured in your Whop app
 
 ---
 
@@ -174,62 +93,80 @@ Open [http://localhost:3000](http://localhost:3000).
 - **Authentication** — Sign in with Whop (OAuth 2.1 + PKCE)
 - **Payments** — Subscription billing via embedded Whop checkout
 - **Webhooks** — Automatic plan upgrades/downgrades on subscription changes
-- **Dashboard** — Protected, responsive dashboard with sidebar navigation
+- **Dashboard** — Protected, responsive dashboard with collapsible sidebar
+- **Plan gating** — Lock features behind subscription tiers with `requirePlan()`, `hasMinimumPlan()`, or `<PlanGate>`
 - **Database** — PostgreSQL with Prisma ORM (auto-provisioned on deploy)
-- **Route protection** — Middleware protects `/dashboard/*` routes
-- **Landing page** — Marketing page with hero, features, and pricing sections
-- **Dark mode** — Automatic dark/light mode based on system preference
-- **AI-ready** — Bundled [agent skill](/.agents/skills/whop-saas-starter/) guides Claude Code, Cursor, Copilot, and other AI agents on how to extend this template
+- **Billing portal** — Self-service subscription management via Whop
+- **Landing page** — Hero with demo video, features, pricing, FAQ, testimonials, CTA
+- **Documentation site** — Built-in docs at `/docs` powered by Fumadocs with search
+- **Dark mode** — Automatic light/dark mode with toggle
+- **Email** — Transactional emails via Resend or SendGrid (welcome, payment failed)
+- **Analytics** — PostHog, Google Analytics, or Plausible (via admin settings or CLI)
+- **AI-ready** — Bundled [agent skill](/.agents/skills/whop-saas-starter/) guides Claude Code, Cursor, and other AI tools on how to extend this template
 
-## Project Structure
+## Project structure
 
 ```
 app/
 ├── (marketing)/pricing/     # Pricing page
 ├── (auth)/login/            # Login page
 ├── dashboard/               # Protected dashboard (layout enforces auth)
+│   ├── projects/            # Example product page
+│   └── settings/            # Admin settings (branding, integrations)
 ├── checkout/                # Embedded Whop checkout
-├── checkout/success/        # Post-payment redirect
+├── docs/                    # Built-in documentation site
 └── api/
-    ├── auth/login/          # Initiate OAuth
-    ├── auth/callback/       # OAuth callback
-    ├── auth/logout/         # Clear session
-    ├── auth/me/             # Current user (client-side)
-    └── webhooks/whop/       # Whop webhook handler
+    ├── auth/                # OAuth login, callback, logout
+    ├── billing/             # Billing portal, uncancel
+    ├── webhooks/whop/       # Whop webhook handler
+    └── config/              # Plan config, accent color, integrations
 components/
-├── landing/                 # Marketing page components
-└── dashboard/               # Dashboard components
-db/
-├── index.ts                 # Prisma client singleton
-└── schema.prisma            # Database schema
+├── landing/                 # Hero, features, pricing, FAQ, CTA
+├── dashboard/               # Sidebar, header, activity feed
+└── checkout/                # Two-step checkout form
 lib/
 ├── auth.ts                  # Session management (JWT cookies)
-├── subscription.ts          # Typed subscription/membership query helpers
-├── whop.ts                  # Whop OAuth + webhook helpers
 ├── constants.ts             # Plan tiers (single source of truth — edit this!)
-└── utils.ts                 # Utility functions
-proxy.ts                     # Route protection (Next.js 16)
+├── config.ts                # DB-backed config with env var fallback
+├── subscription.ts          # Subscription query helpers
+├── activity.ts              # Activity event logging
+└── whop.ts                  # Whop API wrappers
 ```
 
 ## Customization
 
 ### Rename your app
 
-Edit `lib/constants.ts` — change `APP_NAME` and `APP_DESCRIPTION` at the top. Used across the header, sidebar, login page, footer, and metadata.
+Edit `lib/constants.ts` — change `APP_NAME` and `APP_DESCRIPTION`. Used across the header, sidebar, login page, footer, and metadata.
 
 ### Change the plans
 
-Edit `PLAN_METADATA` in `lib/constants.ts` to add, remove, or modify plan tiers. The plan system is data-driven — pricing page, setup wizard, config keys, env vars, and plan gating all adapt automatically. Create matching plans in Whop and connect the IDs via the setup wizard or env vars (pattern: `NEXT_PUBLIC_WHOP_{PLAN_KEY}_PLAN_ID`).
+Edit `definePlans()` in `lib/constants.ts` to add, remove, or modify plan tiers. The plan system is data-driven — pricing page, setup wizard, config keys, env vars, and plan gating all adapt automatically. Create matching plans on Whop via `whop-kit add plans` or the setup wizard.
+
+### Change the look
+
+Set an accent color from the admin dashboard (Settings → Branding). Edit `app/globals.css` to customize the full color palette. The starter uses Tailwind CSS v4 with CSS custom properties for theming.
 
 ### Add new pages
 
 Protected pages go in `app/dashboard/`. Public pages go in `app/(marketing)/`. The proxy automatically protects `/dashboard/*` routes.
 
-### Change the look
+## CLI commands
 
-Edit `app/globals.css`. The starter uses Tailwind CSS v4 with CSS custom properties for theming. Modify the `:root` variables to change colors.
+After setup, use the `whop-kit` CLI to manage your project:
 
-## Development Commands
+```bash
+whop-kit status          # Project health check
+whop-kit add plans       # Create/reconfigure pricing plans on Whop
+whop-kit add email       # Set up Resend or SendGrid
+whop-kit add analytics   # Add PostHog, GA, or Plausible
+whop-kit open whop       # Open Whop dashboard
+whop-kit open vercel     # Open Vercel project
+whop-kit env             # List environment variables
+whop-kit deploy          # Redeploy with updated config
+```
+
+## Development commands
 
 ```bash
 pnpm dev          # Dev server with Turbopack
@@ -239,13 +176,24 @@ pnpm db:push      # Push schema to database
 pnpm db:studio    # Visual database browser
 ```
 
-## Tech Stack
+## Local webhook testing
+
+Use [ngrok](https://ngrok.com) to expose your local server for webhook testing:
+
+```bash
+ngrok http 3000
+```
+
+Use the ngrok URL as your webhook endpoint in Whop: `https://xxxx.ngrok.io/api/webhooks/whop`
+
+## Tech stack
 
 - [Next.js 16](https://nextjs.org) (App Router) + TypeScript
 - [Whop](https://whop.com) (OAuth 2.1 + PKCE, payments, webhooks)
+- [whop-kit](https://www.npmjs.com/package/whop-kit) (framework-agnostic core library)
 - [Prisma 7](https://prisma.io) + PostgreSQL
 - [Tailwind CSS v4](https://tailwindcss.com)
-- [jose](https://github.com/panva/jose) (JWT sessions)
+- [Fumadocs](https://fumadocs.vercel.app) (documentation site)
 
 ## Contributing
 

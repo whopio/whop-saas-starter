@@ -87,16 +87,23 @@ export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, dbStatu
   const terminalCommands = `git clone ${repoGitUrl}\ncd ${repoName}\npnpm install\nnpx vercel link\nnpx vercel env pull .env.local\npnpm dev`;
 
   const fetchPlanPrice = useCallback(async (planId: string, configKey: string) => {
-    if (!planId.trim() || !planId.startsWith("plan_")) return;
+    if (!planId.trim()) return;
+    if (!planId.startsWith("plan_")) {
+      setFetchedPrices((prev) => ({ ...prev, [configKey]: { price: -1, currency: "", billingPeriod: null } }));
+      return;
+    }
     setFetchingPrice(configKey);
     try {
       const res = await fetch(`/api/config/plan-details?planId=${encodeURIComponent(planId.trim())}`);
       if (res.ok) {
         const data = await res.json();
         setFetchedPrices((prev) => ({ ...prev, [configKey]: data }));
+      } else {
+        // Plan not found — show error
+        setFetchedPrices((prev) => ({ ...prev, [configKey]: { price: -1, currency: "", billingPeriod: null } }));
       }
     } catch {
-      // Silently fail — price preview is a nice-to-have
+      setFetchedPrices((prev) => ({ ...prev, [configKey]: { price: -1, currency: "", billingPeriod: null } }));
     } finally {
       setFetchingPrice(null);
     }
@@ -695,8 +702,13 @@ export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, dbStatu
 
               {isSignedIn && isAdmin ? (
                 <>
-                  <div className="mt-5 rounded-lg bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-600 dark:text-emerald-400">
-                    Connected and signed in as admin!
+                  <div className="mt-5 rounded-lg bg-emerald-500/10 px-4 py-3 text-left">
+                    <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                      Signed in as admin
+                    </p>
+                    <p className="mt-1 text-xs text-emerald-600/80 dark:text-emerald-400/80">
+                      You can manage settings, integrations, and plan configuration from the dashboard.
+                    </p>
                   </div>
                   <StepButton onClick={() => goTo(7)}>
                     Continue
@@ -760,7 +772,8 @@ export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, dbStatu
               </div>
 
               <p className="mt-4 text-[11px] text-[var(--muted)] text-center">
-                You can rename tiers, add more, or change features later in <code className="font-mono">lib/constants.ts</code>
+                Monthly and yearly are separate plans on Whop. If you only offer monthly billing, leave the yearly field blank.
+                You can rename tiers, add more, or change features later in <code className="font-mono">lib/constants.ts</code>.
               </p>
 
               <div className="mt-5 space-y-4">
@@ -1009,16 +1022,23 @@ function PriceStatus({
   suffix?: string;
 }) {
   if (fetching === configKey) {
-    return <p className="mt-1 text-[11px] text-[var(--muted)]">Fetching price...</p>;
+    return <p className="mt-1 text-[11px] text-[var(--muted)]">Checking plan...</p>;
   }
   const data = prices[configKey];
   if (!data) return null;
+  if (data.price === -1) {
+    return (
+      <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">
+        Plan not found — check the ID starts with plan_ and matches a plan in your Whop dashboard
+      </p>
+    );
+  }
   const formatted = data.price === 0
     ? "Free"
     : `$${data.price} ${data.currency.toUpperCase()}${suffix ?? ""}`;
   return (
     <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400">
-      Price from Whop: {formatted}
+      Found: {formatted}
     </p>
   );
 }
