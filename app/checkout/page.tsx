@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { getPlansConfig } from "@/lib/config";
+import { getPlansConfig, getWhopEnvironment } from "@/lib/config";
 import { PLAN_KEYS, type PlanKey, type BillingInterval } from "@/lib/constants";
 import { CheckoutForm } from "@/components/checkout/checkout-form";
 
@@ -18,10 +18,11 @@ export default async function CheckoutPage({
   const interval: BillingInterval =
     intervalParam === "monthly" ? "monthly" : "yearly";
 
-  // Fetch plans + session in parallel (server-side, no client round-trips)
-  const [plans, session] = await Promise.all([
+  // Fetch plans + session + environment in parallel (server-side, no client round-trips)
+  const [plans, session, environment] = await Promise.all([
     getPlansConfig(),
     getSession(),
+    getWhopEnvironment(),
   ]);
 
   const plan = planKey ? (plans[planKey] ?? null) : null;
@@ -60,6 +61,7 @@ export default async function CheckoutPage({
       interval={interval}
       userEmail={session?.email ?? null}
       userName={session?.name ?? null}
+      environment={environment}
     />
   );
 }

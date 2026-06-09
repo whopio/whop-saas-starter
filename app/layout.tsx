@@ -7,6 +7,7 @@ import { ToastProvider } from "@/components/toast";
 import { APP_NAME, APP_DESCRIPTION } from "@/lib/constants";
 import { getConfig } from "@/lib/config";
 import { getAnalyticsScript } from "@/lib/analytics";
+import { getWhopUrls, resolveWhopEnvironment } from "whop-kit/whop";
 import "./globals.css";
 
 const inter = Inter({
@@ -59,9 +60,15 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // React DOM resource hints — emitted early in the HTML stream
-  prefetchDNS("https://api.whop.com");
-  preconnect("https://api.whop.com", { crossOrigin: "anonymous" });
+  // React DOM resource hints — emitted early in the HTML stream.
+  // Environment is resolved synchronously from the env var so the hints
+  // don't wait on a DB read; DB-configured sandbox falls back to the
+  // (harmless) production preconnect.
+  const { apiBase } = getWhopUrls(
+    resolveWhopEnvironment(process.env.NEXT_PUBLIC_WHOP_ENVIRONMENT),
+  );
+  prefetchDNS(apiBase);
+  preconnect(apiBase, { crossOrigin: "anonymous" });
 
   // Read accent color and analytics config from DB/env
   let accentCss: string | undefined;

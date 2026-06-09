@@ -50,10 +50,11 @@ export default async function SetupPage({
 
   // Fetch session, search params, and existing config in parallel
   // (only query config if DB is healthy — otherwise these would all be null anyway)
-  const [session, params, whopAppId, ...planConfigValues] = await Promise.all([
+  const [session, params, whopAppId, whopEnvironment, ...planConfigValues] = await Promise.all([
     getSession(),
     searchParams,
     dbStatus === "connected" ? getConfig("whop_app_id") : Promise.resolve(null),
+    dbStatus === "connected" ? getConfig("whop_environment") : Promise.resolve(null),
     ...PLAN_KEYS.flatMap((key) => [
       dbStatus === "connected" ? getConfig(planConfigKey(key)) : Promise.resolve(null),
       dbStatus === "connected" ? getConfig(planConfigKeyYearly(key)) : Promise.resolve(null),
@@ -93,6 +94,7 @@ export default async function SetupPage({
       isVercel={!!process.env.VERCEL}
       initialConfig={{
         whopAppId: whopAppId ?? "",
+        whopEnvironment: whopEnvironment ?? "",
         planIds: initialPlanIds,
         planNames: initialPlanNames,
       }}

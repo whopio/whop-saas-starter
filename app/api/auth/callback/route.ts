@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 import { exchangeCodeForTokens, getWhopUser } from "@/lib/whop";
 import { setSessionCookie, type Session } from "@/lib/auth";
 import { prisma } from "@/db";
-import { getConfig } from "@/lib/config";
+import { getConfig, getWhopEnvironment } from "@/lib/config";
 import { DEFAULT_PLAN, PLAN_KEYS, type PlanKey, APP_NAME } from "@/lib/constants";
 import { sendEmail } from "@/lib/email";
 import { welcomeEmail } from "@/lib/email-templates";
@@ -105,13 +105,18 @@ export async function GET(request: NextRequest) {
     if (!whopAppId) {
       return NextResponse.redirect(new URL("/auth-error?error=app_not_configured", request.url));
     }
-    const tokens = await exchangeCodeForTokens(code, codeVerifier, redirectUri, whopAppId);
+    const environment = await getWhopEnvironment();
+    const tokens = await exchangeCodeForTokens(code, codeVerifier, redirectUri, whopAppId, {
+      environment,
+    });
 
     // Validate the nonce from the id_token to prevent token substitution
     if (expectedNonce && tokens.id_token) {
       try {
         const [, payload] = tokens.id_token.split(".");
-        const claims = JSON.parse(atob(payload));
+        // JWT segments are base64url — convert before atob
+        const b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+        const claims = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
         if (claims.nonce !== expectedNonce) {
           return NextResponse.redirect(
             new URL("/auth-error?error=nonce_mismatch", request.url),
@@ -125,7 +130,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch user profile from Whop
-    const whopUser = await getWhopUser(tokens.access_token);
+    const whopUser = await getWhopUser(tokens.access_token, { environment });
 
     // Check if this is a new user (for welcome email)
     const existingUser = await prisma.user.findUnique({
@@ -150,19 +155,31 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // First-user-is-admin: if no admin exists, promote this user
+    // First-user-is-admin: if no admin exists, promote this user.
+    // The check-then-promote runs in a serializable transaction so two
+    // concurrent first sign-ins can't both be promoted; on a serialization
+    // conflict the loser simply stays non-admin.
     let { isAdmin } = user;
     if (!isAdmin) {
-      const adminExists = await prisma.user.findFirst({
-        where: { isAdmin: true },
-        select: { id: true },
-      });
-      if (!adminExists) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { isAdmin: true },
-        });
-        isAdmin = true;
+      try {
+        isAdmin = await prisma.$transaction(
+          async (tx) => {
+            const adminExists = await tx.user.findFirst({
+              where: { isAdmin: true },
+              select: { id: true },
+            });
+            if (adminExists) return false;
+            await tx.user.update({
+              where: { id: user.id },
+              data: { isAdmin: true },
+            });
+            return true;
+          },
+          { isolationLevel: "Serializable" },
+        );
+      } catch {
+        // Serialization conflict — another sign-in claimed admin first
+        isAdmin = false;
       }
     }
 

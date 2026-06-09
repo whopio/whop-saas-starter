@@ -12,6 +12,7 @@ import { monthlyEquivalent } from "@/lib/utils";
 import { AppLogo } from "@/components/app-logo";
 import { useTheme } from "@/components/theme-provider";
 import type { PlanConfig } from "@/lib/config";
+import type { WhopEnvironment } from "whop-kit/whop";
 import { COUNTRIES } from "@/lib/countries";
 
 // ── Icons ────────────────────────────────────────────────────────────────────
@@ -73,6 +74,7 @@ interface CheckoutFormProps {
   interval: BillingInterval;
   userEmail: string | null;
   userName: string | null;
+  environment: WhopEnvironment;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -84,6 +86,7 @@ export function CheckoutForm({
   interval,
   userEmail,
   userName,
+  environment,
 }: CheckoutFormProps) {
   const router = useRouter();
   const checkoutControlsRef = useCheckoutEmbedControls();
@@ -470,6 +473,7 @@ export function CheckoutForm({
                       <WhopCheckoutEmbed
                         ref={checkoutControlsRef}
                         planId={whopPlanId}
+                        environment={environment}
                         hideEmail
                         hideAddressForm
                         hideSubmitButton

@@ -14,6 +14,9 @@ export {
   getEffectivePrice,
   uncancelMembership,
   verifyWebhookSignature,
+  getWhopUrls,
+  resolveWhopEnvironment,
+  getBillingPortalUrl,
 } from "whop-kit/whop";
 
 export type {
@@ -23,6 +26,9 @@ export type {
   AccessCheckResult,
   WhopPlanDetails,
   WebhookHeaders,
+  WhopEnvironment,
+  WhopRequestOptions,
+  WhopUrls,
 } from "whop-kit/whop";
 
 // ---------------------------------------------------------------------------
@@ -34,7 +40,7 @@ import {
   fetchWhopPlanDetails as _fetchWhopPlanDetails,
   getEffectivePrice,
 } from "whop-kit/whop";
-import { getConfig, setConfig } from "./config";
+import { getConfig, setConfig, getWhopEnvironment } from "./config";
 import {
   type PlanKey,
   planPriceConfigKey,
@@ -49,12 +55,15 @@ export async function hasWhopAccess(
   whopUserId: string,
   resourceId: string,
 ): Promise<{ hasAccess: boolean; accessLevel: string }> {
-  const apiKey = await getConfig("whop_api_key");
+  const [apiKey, environment] = await Promise.all([
+    getConfig("whop_api_key"),
+    getWhopEnvironment(),
+  ]);
   if (!apiKey) {
     console.warn("[Whop] API key not configured; cannot verify access");
     return { hasAccess: false, accessLevel: "no_access" };
   }
-  return _checkWhopAccess(whopUserId, resourceId, apiKey);
+  return _checkWhopAccess(whopUserId, resourceId, apiKey, { environment });
 }
 
 /**
@@ -63,9 +72,12 @@ export async function hasWhopAccess(
 export async function getWhopPlanDetails(
   planId: string,
 ): Promise<import("whop-kit/whop").WhopPlanDetails | null> {
-  const apiKey = await getConfig("whop_api_key");
+  const [apiKey, environment] = await Promise.all([
+    getConfig("whop_api_key"),
+    getWhopEnvironment(),
+  ]);
   if (!apiKey) return null;
-  return _fetchWhopPlanDetails(planId, apiKey);
+  return _fetchWhopPlanDetails(planId, apiKey, { environment });
 }
 
 /**

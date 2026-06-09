@@ -8,6 +8,7 @@ const ALLOWED_KEYS = new Set([
   "whop_app_id",
   "whop_api_key",
   "whop_webhook_secret",
+  "whop_environment",
   ...PLAN_KEYS.flatMap((key) => {
     const keys = [planConfigKey(key)];
     if (getPlanBillingIntervals(key).includes("yearly")) {

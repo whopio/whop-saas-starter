@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { buildAuthorizationUrl } from "@/lib/whop";
-import { getConfig, isSetupComplete } from "@/lib/config";
+import { getConfig, getWhopEnvironment, isSetupComplete } from "@/lib/config";
 
 /**
  * GET /api/auth/login?next=/dashboard
@@ -39,7 +39,10 @@ export async function GET(request: NextRequest) {
   const redirectUri = `${proto}://${host}/api/auth/callback`;
 
   // Generate PKCE values and build the authorization URL
-  const { url, codeVerifier, state, nonce } = await buildAuthorizationUrl(redirectUri, whopAppId);
+  const environment = await getWhopEnvironment();
+  const { url, codeVerifier, state, nonce } = await buildAuthorizationUrl(redirectUri, whopAppId, {
+    environment,
+  });
 
   // Store PKCE verifier, nonce, and redirect path in a cookie (httpOnly, short-lived)
   const cookieStore = await cookies();

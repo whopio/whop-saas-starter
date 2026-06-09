@@ -45,8 +45,8 @@ importers:
         specifier: ^19.2.5
         version: 19.2.5(react@19.2.5)
       whop-kit:
-        specifier: ^0.2.0
-        version: 0.2.0(jose@6.2.2)
+        specifier: ^0.3.0
+        version: 0.3.0(jose@6.2.2)
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.3.5
@@ -3591,8 +3591,8 @@ packages:
     engines: {node: '>= 8'}
     hasBin: true
 
-  whop-kit@0.2.0:
-    resolution: {integrity: sha512-ekOdzyyVzTtygHUPeXBbZv00Sw0QbJvGJ080cK5frPDyTdgMjWjg8BtQrPiCjFIC9qvpDt5Cwoy2iKQMNernTw==}
+  whop-kit@0.3.0:
+    resolution: {integrity: sha512-u6HQvj+XtmCq4tDuOuB7+G6tb0oUORReeXd6NRrm+LAEpl+JRqcRknmFJIPCGlFg8vc7ki5jAMVHskZKAsb8jQ==}
     peerDependencies:
       jose: ^6.0.0
 
@@ -7758,7 +7758,7 @@ snapshots:
     dependencies:
       isexe: 2.0.0
 
-  whop-kit@0.2.0(jose@6.2.2):
+  whop-kit@0.3.0(jose@6.2.2):
     dependencies:
       jose: 6.2.2
 

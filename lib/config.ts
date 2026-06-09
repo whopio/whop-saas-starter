@@ -7,6 +7,7 @@
 
 import { cache as reactCache } from "react";
 import { createConfigManager } from "whop-kit/config";
+import { resolveWhopEnvironment, type WhopEnvironment } from "whop-kit/whop";
 import { prisma } from "@/db";
 import { prismaConfigStore } from "./adapters/prisma";
 import {
@@ -42,6 +43,7 @@ const ENV_MAP: Record<string, string> = {
   whop_app_id: "NEXT_PUBLIC_WHOP_APP_ID",
   whop_api_key: "WHOP_API_KEY",
   whop_webhook_secret: "WHOP_WEBHOOK_SECRET",
+  whop_environment: "NEXT_PUBLIC_WHOP_ENVIRONMENT",
   ...planEnvEntries,
   whop_starter_product_id: "WHOP_STARTER_PRODUCT_ID",
   whop_pro_product_id: "WHOP_PRO_PRODUCT_ID",
@@ -58,6 +60,7 @@ const ENV_MAP: Record<string, string> = {
 /** Non-sensitive keys that can be returned to the client */
 const PUBLIC_KEYS = new Set([
   "whop_app_id",
+  "whop_environment",
   ...PLAN_KEYS.flatMap((key) => {
     const keys = [planConfigKey(key)];
     if (getPlanBillingIntervals(key).includes("yearly")) {
@@ -138,6 +141,21 @@ export async function getSetupStatus(): Promise<{
     values,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Whop environment
+// ---------------------------------------------------------------------------
+
+/**
+ * Which Whop environment this app targets: "production" (default) or
+ * "sandbox" (sandbox.whop.com — isolated test apps, plans, and users).
+ * Set via the setup wizard or NEXT_PUBLIC_WHOP_ENVIRONMENT=sandbox.
+ */
+export const getWhopEnvironment = reactCache(
+  async (): Promise<WhopEnvironment> => {
+    return resolveWhopEnvironment(await getConfig("whop_environment"));
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Setup detection
@@ -261,5 +279,10 @@ export async function getPlanKeyFromWhopId(whopPlanId: string): Promise<PlanKey>
       return key as PlanKey;
     }
   }
+  // Fails safe (no privilege escalation) but a paid purchase of an
+  // unconfigured plan would silently land on the free tier — make it loud.
+  console.warn(
+    `[Config] Whop plan ID "${whopPlanId}" doesn't match any configured plan — defaulting to "${DEFAULT_PLAN}". Check your plan IDs in setup/env vars.`,
+  );
   return DEFAULT_PLAN;
 }

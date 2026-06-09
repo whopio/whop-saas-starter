@@ -55,6 +55,14 @@ This template uses **whop-kit** (`whop-kit` on npm) for all core functionality. 
 - Config keys for plans are **auto-derived** from `PLAN_METADATA` keys (e.g. `whop_starter_plan_id`, `whop_starter_plan_id_yearly`)
 - Env var names follow pattern: `NEXT_PUBLIC_WHOP_{PLAN_KEY}_PLAN_ID` / `_YEARLY`
 
+### Whop Environments (production vs sandbox)
+- `whop_environment` config key (env fallback: `NEXT_PUBLIC_WHOP_ENVIRONMENT`) selects `"production"` (default) or `"sandbox"`
+- Only the exact string `"sandbox"` enables sandbox (via `resolveWhopEnvironment()` from whop-kit) — anything else is production
+- `getWhopEnvironment()` in `lib/config.ts` resolves it (React.cache-deduped); threaded through OAuth routes, access checks, plan price sync, billing portal/uncancel, and the checkout embed's `environment` prop
+- Sandbox hosts: `sandbox-api.whop.com` (OAuth + API) and `sandbox.whop.com` (dashboard/billing portal) via `getWhopUrls()` from whop-kit
+- Sandbox apps/API keys/plans/users are isolated from production — setup wizard has a "Use Whop Sandbox" toggle that also switches its dashboard links
+- See `content/docs/guides/sandbox.mdx`
+
 ### Auth Flow
 - OAuth 2.1 + PKCE — Public client mode (no client_secret needed)
 - PKCE state stored in httpOnly cookie (not in URL state param like whop-ecom)

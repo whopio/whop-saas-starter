@@ -21,6 +21,7 @@ interface Props {
   isVercel: boolean;
   initialConfig?: {
     whopAppId: string;
+    whopEnvironment?: string;
     planIds: Record<string, string>;
     planNames: Record<string, string>;
   };
@@ -58,6 +59,13 @@ export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, dbStatu
   const [whopAppId, setWhopAppId] = useState(initialConfig?.whopAppId ?? "");
   const [whopApiKey, setWhopApiKey] = useState("");
   const [whopWebhookSecret, setWhopWebhookSecret] = useState("");
+
+  // Whop environment — sandbox uses isolated test apps, plans, and users
+  const [useSandbox, setUseSandbox] = useState(
+    initialConfig?.whopEnvironment === "sandbox",
+  );
+  const whopWebBase = useSandbox ? "https://sandbox.whop.com" : "https://whop.com";
+  const whopHostLabel = useSandbox ? "sandbox.whop.com" : "whop.com";
 
   // Plan IDs — pre-filled from server
   const [planIds, setPlanIds] = useState<Record<string, string>>(initialConfig?.planIds ?? {});
@@ -163,6 +171,7 @@ export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, dbStatu
     }
     const ok = await saveConfigs({
       whop_app_id: whopAppId.trim(),
+      whop_environment: useSandbox ? "sandbox" : "production",
       ...(whopApiKey.trim() && { whop_api_key: whopApiKey.trim() }),
     });
     if (ok) goTo(4);
@@ -430,7 +439,24 @@ export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, dbStatu
                 You&apos;ll need a Whop business to handle payments and authentication for your SaaS.
               </p>
 
-              <div className="mt-8 space-y-3">
+              <label className="mt-6 flex w-full cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5 text-left transition-colors hover:border-[var(--accent)]">
+                <input
+                  type="checkbox"
+                  checked={useSandbox}
+                  onChange={(e) => setUseSandbox(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-[var(--accent)]"
+                />
+                <span>
+                  <span className="block text-sm font-medium">Use Whop Sandbox (test mode)</span>
+                  <span className="mt-0.5 block text-xs text-[var(--muted)] leading-relaxed">
+                    Build against sandbox.whop.com with test cards and no real charges.
+                    Sandbox apps, plans, and users are separate from production — create
+                    everything in the sandbox dashboard. You can switch later by re-running setup.
+                  </span>
+                </span>
+              </label>
+
+              <div className="mt-4 space-y-3">
                 <button
                   type="button"
                   onClick={() => goTo(3)}
@@ -442,14 +468,14 @@ export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, dbStatu
                   </p>
                 </button>
                 <a
-                  href="https://whop.com/new/"
+                  href={`${whopWebBase}/new/`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-4 text-left transition-colors hover:border-[var(--accent)]"
                 >
                   <p className="text-sm font-medium">No, I need to create one</p>
                   <p className="mt-0.5 text-xs text-[var(--muted)]">
-                    Opens whop.com/new/ in a new tab — come back here when you&apos;re done
+                    Opens {whopHostLabel}/new/ in a new tab — come back here when you&apos;re done
                   </p>
                 </a>
               </div>
@@ -473,7 +499,7 @@ export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, dbStatu
               <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed text-center">
                 Open the{" "}
                 <a
-                  href="https://whop.com/dashboard/developer"
+                  href={`${whopWebBase}/dashboard/developer`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[var(--accent)] underline underline-offset-2"
@@ -481,6 +507,11 @@ export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, dbStatu
                   Developer page
                 </a>
                 {" "}and click <span className="font-medium text-[var(--foreground)]">Create app</span>.
+                {useSandbox && (
+                  <span className="mt-1.5 block text-xs text-amber-600 dark:text-amber-400">
+                    Sandbox mode: create the app on {whopHostLabel} — production apps won&apos;t work here.
+                  </span>
+                )}
               </p>
 
               <div className="mt-6 space-y-5">
@@ -751,14 +782,14 @@ export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, dbStatu
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/10 text-[10px] font-bold text-[var(--accent)]">1</span>
                     <p className="text-xs text-[var(--muted)] leading-relaxed">
                       Create a product in your{" "}
-                      <a href="https://whop.com/dashboard/products/" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] underline underline-offset-2">Whop Dashboard</a>
+                      <a href={`${whopWebBase}/dashboard/products/`} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] underline underline-offset-2">Whop Dashboard</a>
                     </p>
                   </div>
                   <div className="flex gap-3">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/10 text-[10px] font-bold text-[var(--accent)]">2</span>
                     <p className="text-xs text-[var(--muted)] leading-relaxed">
                       Go to{" "}
-                      <a href="https://whop.com/dashboard/links/checkout/" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] underline underline-offset-2">Checkout Links</a>
+                      <a href={`${whopWebBase}/dashboard/links/checkout/`} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] underline underline-offset-2">Checkout Links</a>
                       {" "}and create a link with your pricing (e.g. $29/mo)
                     </p>
                   </div>

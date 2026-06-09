@@ -1,0 +1,81 @@
+---
+title: Sandbox Mode
+description: Develop and test against Whop's sandbox environment with test cards and no real charges.
+---
+
+Whop provides a fully isolated **sandbox environment** at
+[sandbox.whop.com](https://sandbox.whop.com) for development and testing.
+Sandbox apps, API keys, plans, products, and users are completely separate
+from production — nothing you do in sandbox affects live data, and no real
+charges are made.
+
+This starter supports sandbox mode end to end: OAuth sign-in, API access
+checks, plan price sync, embedded checkout, the billing portal, and
+subscription reactivation all target the sandbox hosts when enabled.
+
+## Enabling sandbox mode
+
+There are two ways to enable it:
+
+### 1. Setup wizard
+
+On the **Business** step of the setup wizard, tick **"Use Whop Sandbox
+(test mode)"**. The wizard saves `whop_environment = sandbox` to the
+database and switches all of its dashboard links to `sandbox.whop.com`,
+so the app you create and the plan IDs you paste come from the right place.
+
+### 2. Environment variable
+
+Power users configuring everything via env vars can set:
+
+```bash
+NEXT_PUBLIC_WHOP_ENVIRONMENT="sandbox"
+```
+
+Only the exact string `sandbox` enables sandbox mode — anything else
+(including unset) means production, so a typo can never silently point a
+live app at test infrastructure.
+
+## What you need in sandbox
+
+Sandbox credentials are **not interchangeable** with production credentials.
+Create each of these in the [sandbox developer dashboard](https://sandbox.whop.com/dashboard/developer):
+
+1. **A sandbox app** — its App ID is your OAuth client ID
+2. **A sandbox API key** — for server-side API calls
+3. **Sandbox plans** — production `plan_…` IDs will not resolve in sandbox
+4. **A sandbox webhook** — pointing at your `/api/webhooks/whop` endpoint
+
+## Test cards
+
+At checkout, use Whop's test cards (any future expiry, any CVC):
+
+| Card number | Outcome |
+|-------------|---------|
+| `4242 4242 4242 4242` | Payment succeeds |
+| `4000 0000 0000 0002` | Payment declined |
+| `5385 3083 6013 5181` | 3D Secure challenge |
+
+## Which hosts are used
+
+| | Production | Sandbox |
+|---|------------|---------|
+| OAuth + API | `api.whop.com` | `sandbox-api.whop.com` |
+| Dashboard + billing portal | `whop.com` | `sandbox.whop.com` |
+| Embedded checkout | `environment="production"` | `environment="sandbox"` |
+
+## Switching to production
+
+When you're ready to go live:
+
+1. Create a production app, plans, and webhook at [whop.com/dashboard/developer](https://whop.com/dashboard/developer)
+2. Replace the App ID, API key, webhook secret, and plan IDs with the production values
+3. Set `whop_environment` to `production` (or remove `NEXT_PUBLIC_WHOP_ENVIRONMENT`)
+
+The easiest way is to re-run the setup wizard, or update the values in your
+environment variables / hosting provider settings.
+
+<Callout type="warn">
+  Sandbox limitations: only card payments are supported (no PayPal, crypto,
+  or other alternative payment methods), and payouts are unavailable.
+</Callout>

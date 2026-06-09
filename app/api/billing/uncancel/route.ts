@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { getConfig } from "@/lib/config";
+import { getConfig, getWhopEnvironment } from "@/lib/config";
+import { getWhopUrls } from "@/lib/whop";
 import {
   getSubscriptionDetails,
   uncancelSubscription,
@@ -43,8 +44,9 @@ export async function POST() {
   }
 
   // Call Whop's uncancel API
+  const { apiBase } = getWhopUrls(await getWhopEnvironment());
   const res = await fetch(
-    `https://api.whop.com/api/v1/memberships/${result.subscription.whopMembershipId}/uncancel`,
+    `${apiBase}/api/v1/memberships/${encodeURIComponent(result.subscription.whopMembershipId)}/uncancel`,
     {
       method: "POST",
       headers: {

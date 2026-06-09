@@ -5,6 +5,7 @@
     "authentication",
     "plan-gating",
     "payments",
+    "sandbox",
     "email",
     "database",
     "api-reference",
