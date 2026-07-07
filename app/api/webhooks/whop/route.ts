@@ -17,17 +17,53 @@ import { logActivityByWhopId } from "@/lib/activity";
  *
  * Handles Whop webhook events for subscription management.
  * Uses createWebhookHandler from whop-kit for signature verification
- * and declarative event routing.
+ * and declarative event routing. Handler keys use the dotted event names
+ * from the current Whop docs; whop-kit normalizes separators, so older
+ * webhooks whose payload api_version sends "membership_activated" still
+ * route correctly.
  *
  * Events handled:
- * - membership_activated                     → Activate subscription (upgrade user plan)
- * - membership_deactivated                   → Deactivate subscription (downgrade to free)
- * - membership_cancel_at_period_end_changed  → Track pending cancellation
- * - payment_succeeded                        → Log successful payment
- * - payment_failed                           → Log failed payment, send email
- * - refund_created                           → Downgrade user on refund
- * - dispute_created                          → Downgrade user on chargeback
+ * - membership.activated                     → Activate subscription (upgrade user plan)
+ * - membership.deactivated                   → Deactivate subscription (downgrade to free)
+ * - membership.cancel_at_period_end_changed  → Track pending cancellation
+ * - payment.succeeded                        → Log successful payment
+ * - payment.failed                           → Log failed payment, send email
+ * - refund.created                           → Downgrade user on refund
+ * - dispute.created                          → Downgrade user on chargeback
  */
+
+type Payload = Record<string, unknown>;
+
+/** Extract an ID that may be a flat string or a nested { id } object. */
+function idOf(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const id = (value as { id?: unknown }).id;
+    if (typeof id === "string") return id;
+  }
+  return undefined;
+}
+
+/** Whop user ID from a webhook payload. Field shapes vary with the webhook's
+ *  payload api_version: older versions send flat ids (user_id), newer ones
+ *  nest objects (user.id). Refund/dispute payloads nest the user inside the
+ *  originating payment. */
+function whopUserIdFrom(data: Payload): string | undefined {
+  const payment = data.payment as Payload | undefined;
+  const membership = data.membership as Payload | undefined;
+  return (
+    idOf(data.user_id) ??
+    idOf(data.user) ??
+    (payment && (idOf(payment.user_id) ?? idOf(payment.user))) ??
+    (membership && (idOf(membership.user_id) ?? idOf(membership.user))) ??
+    undefined
+  );
+}
+
+/** Whop plan ID from a webhook payload (flat plan_id or nested plan.id). */
+function planIdFrom(data: Payload): string | undefined {
+  return idOf(data.plan_id) ?? idOf(data.plan);
+}
 export async function POST(request: NextRequest) {
   const webhookSecret = await getConfig("whop_webhook_secret");
   if (!webhookSecret) {
@@ -38,10 +74,10 @@ export async function POST(request: NextRequest) {
   const handle = createWebhookHandler({
     secret: webhookSecret,
     on: {
-      membership_activated: async (data) => {
-        const userId = data.user_id as string | undefined;
-        const planId = data.plan_id as string | undefined;
-        const id = data.id as string | undefined;
+      "membership.activated": async (data) => {
+        const userId = whopUserIdFrom(data);
+        const planId = planIdFrom(data);
+        const id = idOf(data.id);
         if (!userId || !planId) return;
         const plan = await getPlanKeyFromWhopId(planId);
         await activateMembership(userId, plan, id ?? null);
@@ -49,16 +85,16 @@ export async function POST(request: NextRequest) {
         console.log(`[Webhook] User ${userId} upgraded to ${plan}`);
       },
 
-      membership_deactivated: async (data) => {
-        const userId = data.user_id as string | undefined;
+      "membership.deactivated": async (data) => {
+        const userId = whopUserIdFrom(data);
         if (!userId) return;
         await deactivateMembership(userId);
         await logActivityByWhopId(userId, "plan_change", "Subscription ended");
         console.log(`[Webhook] User ${userId} downgraded to free`);
       },
 
-      membership_cancel_at_period_end_changed: async (data) => {
-        const userId = data.user_id as string | undefined;
+      "membership.cancel_at_period_end_changed": async (data) => {
+        const userId = whopUserIdFrom(data);
         if (!userId) return;
         const value = (data.cancel_at_period_end as boolean) ?? false;
         await updateCancelAtPeriodEnd(userId, value);
@@ -70,13 +106,13 @@ export async function POST(request: NextRequest) {
         console.log(`[Webhook] User ${userId} cancel_at_period_end → ${value}`);
       },
 
-      payment_succeeded: async (data) => {
+      "payment.succeeded": async (data) => {
         console.log("[Webhook] Payment succeeded:", data);
       },
 
-      payment_failed: async (data) => {
+      "payment.failed": async (data) => {
         console.log("[Webhook] Payment failed:", data);
-        const failedUserId = data.user_id as string | undefined;
+        const failedUserId = whopUserIdFrom(data);
         if (failedUserId) {
           after(async () => {
             const user = await getUserForNotification(failedUserId);
@@ -90,15 +126,15 @@ export async function POST(request: NextRequest) {
         }
       },
 
-      refund_created: async (data) => {
-        const userId = data.user_id as string | undefined;
+      "refund.created": async (data) => {
+        const userId = whopUserIdFrom(data);
         if (!userId) return;
         await deactivateMembership(userId);
         console.log(`[Webhook] User ${userId} downgraded to free (refund)`);
       },
 
-      dispute_created: async (data) => {
-        const userId = data.user_id as string | undefined;
+      "dispute.created": async (data) => {
+        const userId = whopUserIdFrom(data);
         if (!userId) return;
         await deactivateMembership(userId);
         console.log(`[Webhook] User ${userId} downgraded to free (dispute)`);

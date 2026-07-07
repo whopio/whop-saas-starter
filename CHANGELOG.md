@@ -4,6 +4,23 @@ Notable template changes, so projects that have already been scaffolded can
 cherry-pick fixes. Once you've cloned this template your copy is yours — there
 is no automatic upgrade path, but each entry links the files involved.
 
+## 2026-07-07 (webhook reliability)
+
+- **Webhook handlers now match Whop's current event naming.** Handler keys use
+  the dotted names from the Whop docs (`membership.activated`); whop-kit 0.3.2
+  normalizes separators so older webhooks that deliver underscore names still
+  route. Previously an exact-match miss meant events were silently
+  acknowledged with a 200 and plans never synced.
+  (`app/api/webhooks/whop/route.ts`)
+- **Payload parsing is shape-defensive.** User/plan IDs are read from both the
+  flat (`user_id`) and nested (`user.id`) forms — the shape depends on the
+  webhook's payload api_version — and refund/dispute payloads resolve the user
+  through the originating payment. (`app/api/webhooks/whop/route.ts`)
+- If your webhook was created by create-whop-kit <= 1.9.0, it is not
+  subscribed to `membership.activated` / `membership.deactivated` — add them
+  in your Whop dashboard (Developer → your app → Webhooks) or recreate the
+  webhook with CLI 1.9.1+.
+
 ## 2026-07-07
 
 ### Plan visibility — pricing adapts to your real tier structure
