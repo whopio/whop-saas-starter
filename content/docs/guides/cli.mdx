@@ -58,12 +58,13 @@ npx whop-kit add plans
 ```
 
 Walks you through creating subscription plans on Whop:
-- How many paid tiers (1-3)
+- How many paid tiers (1-4)
+- A name for each tier (defaults like Starter/Pro are suggested)
 - Free tier included?
 - Monthly + yearly or monthly only
 - Price for each tier
 
-Creates products and plans via the Whop API and writes plan IDs to `.env.local`.
+Creates products and plans via the Whop API, writes plan IDs to `.env.local`, and **rewrites `definePlans()` in `lib/constants.ts`** so the template's tier structure (pricing page, gating, env var names) matches what you created. Tier descriptions and feature lists are generated as placeholders — edit them afterwards.
 
 ### Add Email
 
