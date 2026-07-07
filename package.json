@@ -26,7 +26,7 @@
     "pg": "^8.22.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "whop-kit": "^0.3.0"
+    "whop-kit": "^0.3.1"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
