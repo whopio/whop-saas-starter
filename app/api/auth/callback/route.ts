@@ -217,9 +217,22 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Note: idempotency key (oauth_cb_*) is intentionally NOT deleted.
-    // It must persist to block duplicate requests. Old keys are tiny
-    // (one row per sign-in) and can be pruned periodically if needed.
+    // The idempotency key (oauth_cb_*) must persist to block duplicate
+    // requests, but only for as long as a duplicate can arrive — the OAuth
+    // state cookie is minutes-lived, so 24h is generous. Prune older rows
+    // opportunistically (values are ISO timestamps, so lexicographic
+    // comparison is chronological) to keep SystemConfig from accumulating
+    // one row per sign-in forever.
+    after(async () => {
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      await prisma.systemConfig
+        .deleteMany({
+          where: { key: { startsWith: "oauth_cb_" }, value: { lt: cutoff } },
+        })
+        .catch((err) =>
+          console.error("[OAuth Callback] Idempotency key prune failed:", err)
+        );
+    });
 
     return NextResponse.redirect(new URL(next, request.url));
   } catch (err) {

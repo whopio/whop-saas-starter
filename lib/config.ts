@@ -36,6 +36,8 @@ for (const key of PLAN_KEYS) {
   if (getPlanBillingIntervals(key).includes("yearly")) {
     planEnvEntries[planConfigKeyYearly(key)] = planEnvVarYearly(key);
   }
+  // Optional product IDs for hasWhopAccess() real-time checks
+  planEnvEntries[`whop_${key}_product_id`] = `WHOP_${key.toUpperCase()}_PRODUCT_ID`;
 }
 
 /** Map of our config keys to their env var fallbacks */
@@ -45,8 +47,6 @@ const ENV_MAP: Record<string, string> = {
   whop_webhook_secret: "WHOP_WEBHOOK_SECRET",
   whop_environment: "NEXT_PUBLIC_WHOP_ENVIRONMENT",
   ...planEnvEntries,
-  whop_starter_product_id: "WHOP_STARTER_PRODUCT_ID",
-  whop_pro_product_id: "WHOP_PRO_PRODUCT_ID",
   app_name: "NEXT_PUBLIC_APP_NAME",
   app_url: "NEXT_PUBLIC_APP_URL",
   accent_color: "NEXT_PUBLIC_ACCENT_COLOR",
@@ -186,6 +186,8 @@ export interface PlanConfig {
   highlighted: boolean;
   trialDays?: number;
   billingIntervals: BillingInterval[];
+  /** Display hint from plan metadata: keep the plan in the hierarchy but off pricing pages */
+  hidden?: boolean;
 }
 
 export type PlansConfig = Record<PlanKey, PlanConfig>;
@@ -259,6 +261,33 @@ export const getPlansConfig = reactCache(async (): Promise<PlansConfig> => {
     plans[key] = config;
   }
   return plans;
+});
+
+/** Plans that should appear on public pricing surfaces (landing + /pricing).
+ *
+ *  A plan is dropped when:
+ *  - its metadata sets `hidden: true` — it stays in the hierarchy as a gating
+ *    rank and downgrade target but is never advertised, or
+ *  - setup is complete and a paid tier still has no Whop plan ID for any
+ *    interval — a configured app shouldn't render dead "Configure plan ID"
+ *    cards for tiers the owner chose not to create.
+ *
+ *  Before setup completes, unconfigured paid tiers stay visible as
+ *  placeholders so whoever is installing can see what's missing. Plan
+ *  gating (requirePlan/PlanGate) is unaffected — it works off PLAN_METADATA,
+ *  so hidden tiers still rank normally. */
+export const getVisiblePlans = reactCache(async (): Promise<Partial<PlansConfig>> => {
+  const [plans, setupDone] = await Promise.all([getPlansConfig(), isSetupComplete()]);
+  const visible: Partial<PlansConfig> = {};
+  for (const key of PLAN_KEYS) {
+    const plan = plans[key];
+    if (plan.hidden) continue;
+    const isPaid = key !== DEFAULT_PLAN;
+    const isConfigured = !!(plan.whopPlanId || plan.whopPlanIdYearly);
+    if (setupDone && isPaid && !isConfigured) continue;
+    visible[key] = plan;
+  }
+  return visible;
 });
 
 /** Get the Whop plan ID for a given plan and billing interval */

@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { Header } from "@/components/landing/header";
 import { PricingCards } from "@/components/landing/pricing-cards";
 import { Footer } from "@/components/landing/footer";
-import { getPlansConfig } from "@/lib/config";
+import { getVisiblePlans } from "@/lib/config";
 
 const FAQ = [
   {
@@ -73,7 +73,7 @@ export default function PricingPage() {
 }
 
 async function PricingSection() {
-  const plans = await getPlansConfig();
+  const plans = await getVisiblePlans();
   return <PricingCards plans={plans} />;
 }
 

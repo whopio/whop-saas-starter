@@ -67,17 +67,34 @@ function BillingToggle({
   );
 }
 
-export function PricingCards({ plans }: { plans: PlansConfig }) {
-  const [interval, setInterval] = useState<BillingInterval>("yearly");
+// Static class strings so Tailwind's JIT compiler sees them.
+// Layout adapts to however many plans are visible (see getVisiblePlans).
+const GRID_BY_COUNT: Record<number, string> = {
+  1: "max-w-sm grid-cols-1",
+  2: "max-w-3xl sm:grid-cols-2",
+  3: "max-w-5xl lg:grid-cols-3",
+  4: "max-w-6xl sm:grid-cols-2 lg:grid-cols-4",
+};
+
+export function PricingCards({ plans }: { plans: Partial<PlansConfig> }) {
+  const [selectedInterval, setSelectedInterval] = useState<BillingInterval>("yearly");
   const planKeys = Object.keys(plans) as PlanKey[];
+
+  // No paid plan offers yearly billing → hide the toggle and price monthly
+  const hasYearly = planKeys.some(
+    (key) => key !== DEFAULT_PLAN && plans[key]?.billingIntervals.includes("yearly"),
+  );
+  const interval = hasYearly ? selectedInterval : "monthly";
+  const gridClass = GRID_BY_COUNT[planKeys.length] ?? "max-w-5xl lg:grid-cols-3";
 
   return (
     <div>
-      <BillingToggle interval={interval} onChange={setInterval} />
+      {hasYearly && <BillingToggle interval={interval} onChange={setSelectedInterval} />}
 
-      <div className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-3">
+      <div className={`mx-auto grid gap-4 ${gridClass}`}>
         {planKeys.map((key) => {
           const plan = plans[key];
+          if (!plan) return null;
           const highlighted = plan.highlighted;
           const isFree = key === DEFAULT_PLAN;
           const price = plan.priceMonthly;
@@ -163,7 +180,16 @@ export function PricingCards({ plans }: { plans: PlansConfig }) {
                   >
                     {isFree ? "Start Free" : highlighted ? "Get Started" : "Subscribe"}
                   </Link>
+                ) : isFree ? (
+                  // Free tier needs no Whop plan — signing in is the signup
+                  <Link
+                    href="/login"
+                    className="block rounded-lg border border-[var(--border)] py-2.5 text-center text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--surface)]"
+                  >
+                    Start Free
+                  </Link>
                 ) : (
+                  // Only reachable pre-setup — configured apps hide these tiers
                   <span className="block w-full rounded-lg border border-[var(--border)] py-2.5 text-center text-xs text-[var(--muted)]">
                     Configure plan ID
                   </span>

@@ -80,6 +80,8 @@ This template uses **whop-kit** (`whop-kit` on npm) for all core functionality. 
 - Key order in `PLAN_METADATA` defines the plan hierarchy (first = lowest, last = highest)
 - `PLAN_RANK`, `PLAN_KEYS`, `DEFAULT_PLAN` are all auto-derived via whop-kit
 - To add/remove/modify a tier: edit the `definePlans()` call — config keys, env vars, setup wizard, pricing page, plan gating all adapt automatically
+- **Visibility**: pricing surfaces use `getVisiblePlans()` (not `getPlansConfig()`) — post-setup, paid tiers without a Whop plan ID are hidden; pre-setup they render as placeholders. `hidden: true` on a plan keeps it in the hierarchy but off pricing pages (needs whop-kit >= 0.3.1). Free tier without a plan ID links to sign-in. Grid adapts to 1–4 visible tiers; billing toggle hides when no visible paid tier offers yearly
+- Product IDs for `hasWhopAccess()` are auto-derived per plan key: config `whop_{key}_product_id`, env `WHOP_{KEY}_PRODUCT_ID`
 
 ### Payments
 - Whop embedded checkout via `@whop/checkout` React component (`WhopCheckoutEmbed`)
@@ -143,6 +145,7 @@ This template uses **whop-kit** (`whop-kit` on npm) for all core functionality. 
 - `activateMembership()` / `deactivateMembership()` / `updateCancelAtPeriodEnd()` — subscription write helpers (via whop-kit/subscriptions adapter)
 - `getConfig(key)` — read config value (cache → env → DB, via whop-kit/config)
 - `getPlansConfig()` — server-side plan config (use in server components, pass to client as props)
+- `getVisiblePlans()` — plans for public pricing surfaces (drops hidden + unconfigured-post-setup tiers); returns `Partial<PlansConfig>`
 - `sendEmail({ to, subject, html })` — sends via configured provider (Resend/SendGrid, via whop-kit/email)
 - `getAnalyticsScript()` — generates `<script>` tags for PostHog/GA/Plausible (via whop-kit/analytics)
 - `createWebhookHandler()` — declarative webhook event routing with signature verification (via whop-kit/webhooks)
@@ -212,6 +215,12 @@ source.config.ts            # Fumadocs MDX content config
 mdx-components.tsx          # MDX component overrides
 prisma.config.ts            # Prisma 7 configuration (points to db/schema.prisma)
 ```
+
+## Template Principles
+- This is a **starter template**, not a production app: judge changes by first-run experience, teachability, and deletability — not by production-ops concerns (tests/CI/rate limiting are the consumer's and platform's job)
+- Keep the dependency surface lean — every dependency is future breakage in a cloned repo that can't pull upstream fixes
+- Never ship a state that looks broken by default (dead buttons, "—" prices, empty boxes)
+- Log notable changes in `CHANGELOG.md` so cloned projects can cherry-pick fixes
 
 ## Pre-Commit Checklist
 1. Run `pnpm build` — must pass cleanly

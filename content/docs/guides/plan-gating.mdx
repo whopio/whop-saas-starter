@@ -121,7 +121,7 @@ For most UI and page gating, the database check (via `requirePlan` or `hasMinimu
 
 To use `hasWhopAccess()`, configure your Whop product IDs:
 
-- **Environment variables**: `WHOP_STARTER_PRODUCT_ID` and `WHOP_PRO_PRODUCT_ID`
+- **Environment variables**: `WHOP_{PLAN_KEY}_PRODUCT_ID` for each tier (e.g. `WHOP_STARTER_PRODUCT_ID`, `WHOP_PRO_PRODUCT_ID`) — derived automatically from your `definePlans()` keys
 - **Or via admin settings**: these can also be stored in the database config
 
 Product IDs (`prod_xxxxx`) are different from plan IDs (`plan_xxxxx`). Products represent your tiers; plans are the pricing options within each product (monthly, yearly).

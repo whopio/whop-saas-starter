@@ -73,10 +73,17 @@ The plan system is **data-driven** from `PLAN_METADATA` in `lib/constants.ts`. T
 - **Edit tiers** — change names, descriptions, features in `PLAN_METADATA`
 - **Add/remove tiers** — add or remove keys. The pricing page, setup wizard, plan gating, and config keys all adapt automatically
 - **Prices** — set in your Whop Dashboard, synced automatically via the Whop API. You can manually sync from **Dashboard → Settings → Pricing**
-- **Billing intervals** — set `billingIntervals: ["monthly"]` on a plan to disable yearly
+- **Billing intervals** — set `billingIntervals: ["monthly"]` on a plan to disable yearly. If no paid plan offers yearly, the pricing toggle disappears automatically
 - **Free trials** — set `trialDays: 7` for display; configure the actual trial in your Whop Dashboard
+- **Hide a tier** — set `hidden: true` to keep a plan in the hierarchy (gating ranks, downgrade target) without showing it on pricing pages. Useful when you don't want to advertise a free tier but still need it as the unpaid landing state
 
 Connect Whop plan IDs via the setup wizard at `/setup` or environment variables (pattern: `NEXT_PUBLIC_WHOP_{PLAN_KEY}_PLAN_ID`).
+
+### Plan visibility
+
+Pricing pages only show tiers that are ready to sell. Once setup is complete, a **paid tier with no Whop plan ID is hidden** instead of rendering an unusable card — so if you only configure one paid tier, visitors see exactly one paid tier. Before setup completes, unconfigured tiers stay visible as placeholders so you can see what's left to wire up. The free tier is always shown (unless `hidden`) and links to sign-in when it has no Whop plan ID.
+
+The pricing grid adapts to the visible count (1–4 columns), so any tier structure looks intentional.
 
 ## Landing Page
 
@@ -216,3 +223,20 @@ If you don't need the built-in documentation:
 4. Remove the docs link from `components/landing/header-client.tsx` and `components/landing/footer.tsx`
 5. Remove the `/api/search` route (`app/api/search/`)
 6. Remove `createMDX` from `next.config.ts`
+
+## Removing the Activity Feed
+
+If you don't want per-user activity tracking:
+
+1. Delete `lib/activity.ts` and `components/dashboard/activity-feed.tsx`
+2. Remove the `<ActivityFeed />` usage and `getRecentActivity` import from `app/dashboard/page.tsx`
+3. Remove `logActivity` / `logActivityByWhopId` calls from `app/api/auth/callback/route.ts`, `app/api/webhooks/whop/route.ts`, `app/api/config/accent/route.ts`, and `app/api/config/integrations/route.ts`
+4. Delete the `ActivityEvent` model (and the `activities` relation on `User`) from `db/schema.prisma`, then run `pnpm db:push`
+
+## Removing Analytics
+
+If you don't need the built-in analytics integrations (PostHog, Google Analytics, Plausible):
+
+1. Delete `lib/analytics.ts` and remove the `getAnalyticsScript()` usage from `app/layout.tsx`
+2. Remove the analytics fields from `components/dashboard/integrations-settings.tsx` and `app/api/config/integrations/route.ts`
+3. Remove `analytics_provider` / `analytics_id` from `ENV_MAP` in `lib/config.ts`

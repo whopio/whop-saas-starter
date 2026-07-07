@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { isSetupComplete, getPlansConfig } from "@/lib/config";
+import { isSetupComplete, getVisiblePlans } from "@/lib/config";
 import { Header } from "@/components/landing/header";
 import { Hero } from "@/components/landing/hero";
 import { Features } from "@/components/landing/features";
@@ -61,7 +61,7 @@ export default async function HomePage() {
 }
 
 async function PricingSection() {
-  const plans = await getPlansConfig();
+  const plans = await getVisiblePlans();
   return <PricingCards plans={plans} />;
 }
 
