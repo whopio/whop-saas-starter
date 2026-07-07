@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PLAN_METADATA, PLAN_KEYS, DEFAULT_PLAN, getPlanBillingIntervals, planConfigKey, planConfigKeyYearly, planNameConfigKey } from "@/lib/constants";
 
@@ -958,9 +959,9 @@ export function SetupWizard({ initialStep, isSignedIn, isAdmin, repoUrl, dbStatu
               {/* Docs link */}
               <p className="mt-4 text-xs text-[var(--muted)]">
                 Need help?{" "}
-                <a href="/docs" className="text-[var(--accent)] underline underline-offset-2">
+                <Link href="/docs" className="text-[var(--accent)] underline underline-offset-2">
                   Read the docs
-                </a>
+                </Link>
               </p>
 
               <StepButton onClick={handleComplete} disabled={saving}>
